@@ -7,8 +7,7 @@ This project focuses on building a deep-learning model that can automatically an
 Herein, we show gif file. Please refer `videos/EchoNet_Annotation.mp4` if you want see video file.
 ![Representative Videos for 2D Auto-Annotated Echocardiography](videos/EchoNet_Annotation.gif)
 
-<img src="https://github.com/echonet/measurements/blob/update-readme/Echocardiography_2D_AutoMeasurement_vs_Human.png" alt="Sample Echo Frame" width="700"/>
-
+<img src="https://github.com/echonet/measurements/blob/update-readme/Echocardiography_2D_AutoMeasurement_vs_Human.png" alt="Sample Echo Frame" width="600"/>
 
 
 Key Benefits:
@@ -20,7 +19,7 @@ Key Benefits:
 Model Information:
 - 2D Video Model: For 2D echocardiographic videos, our model is trained and operates on videos with a resolution of 600×800.
 - Doppler Image Model: For Doppler images, our model is designed to process videos at a resolution of 426×1080.
-    - Why 426×1080?
+    - **Why 426×1080?**
     Typically, DICOM images are stored with a resolution of 768×1024 (but I think it can depend on the vendor and hospital). However, the area where Doppler information is displayed usually starts around pixel 342-344 in the vertical axis (if original is stored 768*1024). Thus, we calculate the height for the Doppler image as 426 (by subtracting 342 from 768). This ensures that the model focuses only on the relevant Doppler information, optimizing both computational resources and model performance.
 
 ## Repository Overview
