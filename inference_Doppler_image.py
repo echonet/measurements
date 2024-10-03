@@ -1,0 +1,129 @@
+import torch
+import pandas as pd
+from torchvision.models.segmentation import deeplabv3_resnet50
+import cv2
+import numpy as np
+from argparse import ArgumentParser
+from utils import segmentation_to_coordinates, get_coordinates_from_dicom, find_horizontal_line
+import pydicom
+from pydicom.pixel_data_handlers.util import  convert_color_space
+import matplotlib.pyplot as plt
+
+#Write Explanation of the entire script
+"""
+This script is for Doppler Velocity inference. 
+The input is a DICOM file with a Doppler region. 
+The script will output the Predicted Annotation and Velocity (Like TRVMAX or AVVMAX).
+"""
+
+def forward_pass(inputs):
+    logits = backbone(inputs)["out"] # torch.Size([1, 2, 480, 640])
+    # Step 1: Apply sigmoid if needed
+    if DO_SIGMOID:
+        logits = torch.sigmoid(logits)
+    # Step 2: Apply segmentation threshold if needed
+    if SEGMENTATION_THRESHOLD is not None:
+        logits[logits < SEGMENTATION_THRESHOLD] = 0.0
+    # Step 3: Convert segmentation map to coordinates
+    predictions = segmentation_to_coordinates(
+        logits,
+        normalize=False,  # Set to True if you want normalized coordinates
+        order="XY"
+    )
+    return predictions
+
+#Configuration
+SEGMENTATION_THRESHOLD = 0.0
+DO_SIGMOID = True
+N_POINTS = 1
+
+ULTRASOUND_REGIONS_TAG = (0x0018, 0x6011)
+REGION_X0_SUBTAG = (0x0018, 0x6018)  # left
+REGION_Y0_SUBTAG = (0x0018, 0x601A)  # top
+REGION_X1_SUBTAG = (0x0018, 0x601C)  # right
+REGION_Y1_SUBTAG = (0x0018, 0x601E)  # bottom
+STUDY_DESCRIPTION_TAG = (0x0008, 0x1030)
+SERIES_DESCRIPTION_TAG = (0x0008, 0x103E)
+PHOTOMETRIC_INTERPRETATION_TAG = (0x0028, 0x0004)
+REGION_PHYSICAL_DELTA_Y_SUBTAG = (0x0018, 0x602E)
+
+parser = ArgumentParser()
+parser.add_argument("--model_weights", type=str, required = True ,choices=["trvmax", "ALL_PW", "SINGLE"], default=None)
+parser.add_argument("--file_path", type=str, required = True, help= "Path to the video file (both AVI and DICOM)", default=None)
+parser.add_argument("--output_path", type=str, required = True, help= "Output. Defalut should be AVI", default=None)
+args = parser.parse_args()
+
+print("Note: This script is for Doppler inference. Input DICOM height and width are 768 and 1024 respectively.")
+
+if not args.file_path.endswith(".dcm"):
+    raise ValueError("File path must be .dcm since we need Dicom Tag Information to calculate the Doppler Region and Velocity")
+if not args.output_path.endswith(".jpg"):
+    raise ValueError("Output path must be .jpg")
+
+#MODEL LOADING
+device = "cuda:1" #cpu / cuda
+weights_path = "/workspace/yuki/measurements_internal/weights/trvmax_mae_15_weights.ckpt" #args.model_weights
+weights = torch.load(weights_path)
+backbone = deeplabv3_resnet50(num_classes=1)  # 39,633,986 params
+weights = {k.replace("m.", ""): v for k, v in weights.items()}
+print(backbone.load_state_dict(weights)) #<All keys matched successfully>
+backbone = backbone.to(device)
+backbone.eval()
+
+#LOAD DICOM IMAGE with DOPPLER REGION
+DICOM_FILE = args.file_path  #"/workspace/yuki/measurements_internal/measurements/SAMPLE_DICOM/TRVMAX_Demo_5.dcm" #args.file_path  
+
+ds = pydicom.dcmread(DICOM_FILE)
+input_image = ds.pixel_array
+if ds.PhotometricInterpretation == 'MONOCHROME2':
+    input_image = np.stack((input_image,) * 3, axis=-1)
+elif ds.PhotometricInterpretation == "YBR_FULL_422" and len(input_image.shape) == 3:
+    input_image = convert_color_space(arr=input_image, current="YBR_FULL_422", desired="RGB")
+elif ds.PhotometricInterpretation == "RGB": 
+    pass
+else:
+    print("Unsupported Photometric Interpretation")
+    
+#"Need Specific DICOM Region TAG for Doppler. It is typically saved in the DICOM file."
+doppler_region = get_coordinates_from_dicom(ds)[0]
+if REGION_PHYSICAL_DELTA_Y_SUBTAG in doppler_region:
+    conversion_factor = abs(doppler_region[REGION_PHYSICAL_DELTA_Y_SUBTAG].value)
+if REGION_Y0_SUBTAG in doppler_region: 
+    y0 = doppler_region[REGION_Y0_SUBTAG].value
+if REGION_Y1_SUBTAG in doppler_region: 
+    y1 = doppler_region[REGION_Y1_SUBTAG].value
+if REGION_X0_SUBTAG in doppler_region: 
+    x0 = doppler_region[REGION_X0_SUBTAG].value
+if REGION_X1_SUBTAG in doppler_region: 
+    x1 = doppler_region[REGION_X1_SUBTAG].value
+print("Doppler Region is located: X ranged from", x0, "to ", x1, ". Y ranged from ", y0, "to", y1)
+
+#horizontal line means the line where the Doppler signal starts
+horizontal_y = find_horizontal_line(ds.pixel_array[y0:y1, :])
+#Basically, the region where the Doppler signal starts is 342-345. We truncate the image from 342 to 768. Make 426*1024.
+input_dicom_doppler_area = ds.pixel_array[342 :,:, :] 
+doppler_area_tensor = torch.tensor(input_dicom_doppler_area)
+doppler_area_tensor = doppler_area_tensor.permute(2, 0, 1).unsqueeze(0)
+doppler_area_tensor = doppler_area_tensor.float() / 255.0
+doppler_area_tensor = doppler_area_tensor.to(device) #torch.Size([1, 3, 426, 1024])
+
+with torch.no_grad():
+    model_output = forward_pass(doppler_area_tensor)
+    X = model_output[0, 0, 0].item()  # Predicted X value
+    Y = model_output[0, 0, 1].item()  # Predicted Y value in the Doppler Region
+    predicted_x = int(X) 
+    predicted_y = int(Y + y0) #add y0 to get the actual y value in the original image to map
+    
+    peak_velocity = conversion_factor * (predicted_y - (y0 + horizontal_y))
+    peak_velocity = round(peak_velocity, 2)
+    plt.figure(figsize=(4, 4))
+    cv2.circle(input_image, (predicted_x, predicted_y), 10, (135, 206, 235), -1)
+    plt.imshow(input_image, cmap='gray')
+    plt.savefig(args.output_path)  #"/workspace/yuki/measurements_internal/measurements/SAMPLE_AVI/SAMPLE_PLAX_GENERATED.jpg")
+
+print("Peak Velocity is", peak_velocity, "cm/s")
+print("Output Image is saved at", args.output_path)
+#SAMPLE SCRIPT
+#python inference_Doppler_image.py --model_weights "trvmax" 
+#--file_path "/workspace/yuki/measurements_internal/measurements/SAMPLE_DICOM/TRVMAX_Demo_5.dcm"
+#--output_path "/workspace/yuki/measurements_internal/measurements/SAMPLE_AVI/SAMPLE_PLAX_GENERATED.jpg"
