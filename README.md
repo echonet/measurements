@@ -59,6 +59,7 @@ pip install -r requirements.txt
 ```
 
 3. Run inference:
+4. 
 3-1. Linear Measurement (like IVS, LAD, AORTA)
 for model_weights, please refer to --model_weights choices in the script.
 Either AVI and DICOM format works for input.
