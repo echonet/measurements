@@ -1,4 +1,4 @@
-# Automatic Annotation for Echocardiography
+# EchoNet-Measurement -Automatic Annotation for Echocardiography-
 
 **Project Overview**   
 
@@ -42,9 +42,6 @@ This repository contains the deep learning model used for automatic annotation f
 3. utils/:
 
 
-## Important Notes on Demo Videos:
-Demo videos that illustrate how the model works in real-world applications. At this time, demo App are not publicly released because the data used contains personal information and Gradio does not fully comply with HIPAA (Health Insurance Portability and Accountability Act) standards. To protect patient privacy and sensitive information, we have decided not to make the demo videos publicly available. Herein, we used de-identified Dicom files for this demo.
-
 
 ## How to Use:
 1. Clone the repository:
@@ -80,3 +77,7 @@ python inference_Doppler_image.py --model_weights "VARIABLE_LIKE_TRVMAX"  --file
 
 
 ## Gradio Demo Sample
+**Important Notes on Demo Videos**
+Demo videos that illustrate how the model works in real-world applications. At this time, demo App are not publicly released because the data used contains personal information and Gradio does not fully comply with HIPAA (Health Insurance Portability and Accountability Act) standards. To protect patient privacy and sensitive information, we have decided not to make the demo videos publicly available. Herein, we used de-identified Dicom files for this demo.
+
+![Representative Videos for 2D Auto-Annotated Echocardiography](videos/Gradio_demo_TRVMAX.gif)
