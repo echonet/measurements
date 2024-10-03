@@ -7,8 +7,7 @@ This project focuses on building a deep-learning model that can automatically an
 Herein, we show gif file. Please refer `videos/EchoNet_Annotation.mp4` if you want see video file.
 ![Representative Videos for 2D Auto-Annotated Echocardiography](videos/EchoNet_Annotation.gif)
 
-<img src="https://github.com/echonet/measurements/blob/update-readme/Echocardiography_2D_AutoMeasurement_vs_Human.png" alt="Sample Echo Frame" width="600"/>
-
+<img src="https://github.com/echonet/measurements/blob/main/image/Echocardiography_2D_AutoMeasurement_vs_Human.png" alt="Sample Echo Frame" width="600"/>
 
 Presentation: Conference information will be updated.
 Preprint: link will be added once preprint is released
@@ -75,3 +74,5 @@ Input should be DICOM image since specific DICOM Tag information is needed.
 ```sh
 python inference_Doppler_image.py --model_weights "VARIABLE_LIKE_TRVMAX"  --file_path "YOUR_DICOM.dcm" --output_path "YOUR_OUTPUT_PATH.jpg"
 ```
+
+<img src="https://github.com/echonet/measurements/blob/main/image/sample_output_31and32.png" alt="Sample Echo Frame" width="600"/>
