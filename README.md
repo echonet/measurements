@@ -59,7 +59,7 @@ pip install -r requirements.txt
 ```
 
 3. Run inference:
-4. 
+
 3-1. Linear Measurement (like IVS, LAD, AORTA)
 for model_weights, please refer to --model_weights choices in the script.
 Either AVI and DICOM format works for input.
@@ -77,3 +77,6 @@ python inference_Doppler_image.py --model_weights "VARIABLE_LIKE_TRVMAX"  --file
 ```
 
 <img src="https://github.com/echonet/measurements/blob/main/image/sample_output_31and32.png" alt="Sample Echo Frame" width="600"/>
+
+
+## Gradio Demo Sample
