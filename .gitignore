@@ -12,7 +12,7 @@ wandb
 *.pt
 SAMPLE_AVI
 SAMPLE_DICOM
-
+__pycache__
 # Jupyter Notebook
 .ipynb_checkpoints
 
