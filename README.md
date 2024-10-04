@@ -1,7 +1,9 @@
 # EchoNet-Measurement -Automatic Annotation for Echocardiography-
 
-**Project Overview**   
+## Repository Overview
+This repository contains the deep learning model used for automatic annotation for 2D echo videos and Doppler images, along with the necessary code and weights to load the model and perform inference on your echo videos. Users can easily run predictions using the provided codes and weights.
 
+**Project Overview**   
 This project focuses on building a deep-learning model that can automatically annotate specific measurements from echocardiographic videos or images. Annotation of measurements on images is typically a time-consuming task for cardiologists and sonographer, especially with the growing volume of echocardiographic exams being performed. Automating this process has the potential to significantly improve efficiency in clinical workflows, and potentially reduce human-error, and allow high-throughput cardiovascular research using echocardiography. Our model aims to streamline this annotation process and guide parameter measurements with faster and more accurate manner.
 
 Herein, we show gif file. Please refer `videos/EchoNet_Annotation.mp4` if you want see video file.
@@ -33,13 +35,13 @@ Key Benefits:
 Sometimes, the ultrasound video is blurred or does not have appropriate quality to evaluate. The quality depends on the sonographer as well as the patient's position and the position of the heart. In these cases, we believe that the output (that is, measurement or annotations) of deep learning model may not be accurate. Therefore, we created a model to evaluate the quality of PLAX Video, and evaluated the impact of video quality on the inferred value. This is not the main purpose of this paper, but we have created a model and uploaded it here. We used 112*112 videos as Input for this model. Sample videos have been published in the past (https://echonet.github.io/dynamic/index.html).
 
 
-## Repository Overview
-This repository contains the deep learning model used for automatic annotation for 2D echo videos and Doppler images, along with the necessary code and weights to load the model and perform inference on your echo videos. Users can easily deploy the model and run predictions using the provided codes.
+
+
 
 ## Contents
 1. model/: Contains the trained deep learning model weights for echo video annotation.
-2. inference.py: Script for loading the model and running inference on input echo videos.
-3. utils/:
+2. inference.py: Script for loading the model and running inference on input echo videos or Dicoms. (inference_2D_image.py) (inference_Doppler_image.py)
+3. utils/: Contains the code for getting doppler region from dicom and hosrizontal line for Doppler image etc.
 
 
 
