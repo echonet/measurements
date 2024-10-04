@@ -15,7 +15,7 @@ Presentation: Conference information will be updated.
 Preprint: link will be added once preprint is released
 Paper: link will be added once preprint is released
 
-Key Benefits:
+**Key Benefits in the clinical practice**:
 - Efficiency: Reducing the time needed for manual annotations.
 - Scalability: Addressing the increasing number of echo exams by automating routine tasks.
 - Accuracy: Providing consistent and reliable annotations of echocardiography parameters.
@@ -33,8 +33,6 @@ Key Benefits:
 
 2. PLAX quality model
 Sometimes, the ultrasound video is blurred or does not have appropriate quality to evaluate. The quality depends on the sonographer as well as the patient's position and the position of the heart. In these cases, we believe that the output (that is, measurement or annotations) of deep learning model may not be accurate. Therefore, we created a model to evaluate the quality of PLAX Video, and evaluated the impact of video quality on the inferred value. This is not the main purpose of this paper, but we have created a model and uploaded it here. We used 112*112 videos as Input for this model. Sample videos have been published in the past (https://echonet.github.io/dynamic/index.html).
-
-
 
 
 
