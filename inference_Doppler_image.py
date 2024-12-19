@@ -9,7 +9,6 @@ import pydicom
 from pydicom.pixel_data_handlers.util import  convert_color_space
 import matplotlib.pyplot as plt
 
-#Write Explanation of the entire script
 """
 This script is for Doppler Velocity inference. 
 The input is a DICOM file with a Doppler region. 
@@ -48,7 +47,7 @@ PHOTOMETRIC_INTERPRETATION_TAG = (0x0028, 0x0004)
 REGION_PHYSICAL_DELTA_Y_SUBTAG = (0x0018, 0x602E)
 
 parser = ArgumentParser()
-parser.add_argument("--model_weights", type=str, required = True ,choices=["trvmax", "ALL_PW", "SINGLE"], default=None)
+parser.add_argument("--model_weights", type=str, required = True, default=None)
 parser.add_argument("--file_path", type=str, required = True, help= "Path to the video file (both AVI and DICOM)", default=None)
 parser.add_argument("--output_path", type=str, required = True, help= "Output. Defalut should be AVI", default=None)
 args = parser.parse_args()
@@ -62,7 +61,8 @@ if not args.output_path.endswith(".jpg"):
 
 #MODEL LOADING
 device = "cuda:1" #cpu / cuda
-weights_path = "/workspace/yuki/measurements_internal/weights/trvmax_mae_15_weights.ckpt" #args.model_weights
+weights_path = f"./weights/Doppler_models/{args.model_weights}_mae_15_weights.ckpt" #args.model_weights
+
 weights = torch.load(weights_path)
 backbone = deeplabv3_resnet50(num_classes=1)  # 39,633,986 params
 weights = {k.replace("m.", ""): v for k, v in weights.items()}
@@ -71,7 +71,7 @@ backbone = backbone.to(device)
 backbone.eval()
 
 #LOAD DICOM IMAGE with DOPPLER REGION
-DICOM_FILE = args.file_path  #"/workspace/yuki/measurements_internal/measurements/SAMPLE_DICOM/TRVMAX_Demo_5.dcm" #args.file_path  
+DICOM_FILE = args.file_path  #"./SAMPLE_DICOM/TRVMAX_Demo_5.dcm"
 
 ds = pydicom.dcmread(DICOM_FILE)
 input_image = ds.pixel_array
@@ -119,11 +119,12 @@ with torch.no_grad():
     plt.figure(figsize=(4, 4))
     cv2.circle(input_image, (predicted_x, predicted_y), 10, (135, 206, 235), -1)
     plt.imshow(input_image, cmap='gray')
-    plt.savefig(args.output_path)  #"/workspace/yuki/measurements_internal/measurements/SAMPLE_AVI/SAMPLE_PLAX_GENERATED.jpg")
+    plt.savefig(args.output_path)
 
 print("Peak Velocity is", peak_velocity, "cm/s")
 print("Output Image is saved at", args.output_path)
+
 #SAMPLE SCRIPT
 #python inference_Doppler_image.py --model_weights "trvmax" 
-#--file_path "/workspace/yuki/measurements_internal/measurements/SAMPLE_DICOM/TRVMAX_Demo_5.dcm"
-#--output_path "/workspace/yuki/measurements_internal/measurements/SAMPLE_AVI/SAMPLE_PLAX_GENERATED.jpg"
+#--file_path "./SAMPLE_DICOM/TRVMAX_Demo_5.dcm"
+#--output_path "./SAMPLE_AVI/SAMPLE_PLAX_GENERATED.jpg"

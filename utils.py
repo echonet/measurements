@@ -4,7 +4,12 @@ import torch
 from typing import Tuple, Union, List
 import torch
 import numpy as np
+import math
 import pydicom
+import scipy.signal
+from tqdm import tqdm
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
 ULTRASOUND_REGIONS_TAG = (0x0018, 0x6011)
 REGION_X0_SUBTAG = (0x0018, 0x6018)  # left
@@ -14,6 +19,7 @@ REGION_Y1_SUBTAG = (0x0018, 0x601E)  # bottom
 STUDY_DESCRIPTION_TAG = (0x0008, 0x1030)
 SERIES_DESCRIPTION_TAG = (0x0008, 0x103E)
 PHOTOMETRIC_INTERPRETATION_TAG = (0x0028, 0x0004)
+REGION_PHYSICAL_DELTA_X_SUBTAG = (0x0018, 0x602C)
 REGION_PHYSICAL_DELTA_Y_SUBTAG = (0x0018, 0x602E)
 
 def segmentation_to_coordinates(
@@ -126,3 +132,116 @@ def find_horizontal_line(
                 y = int(y0)
                 return y
     return None
+
+
+def calculate_weighted_centroids_with_meshgrid(logits):
+    """
+    #Write Explanation
+    From Logit input, calculate the weighted centroids of the contours.
+    If the number of objects is 3, the function returns the weighted centroids of the 3 objects.
+    
+    Args:
+        logits: np.array of shape (H, W) with values in [0, 1]
+    Returns:
+        pair_centroids: list of tuples [(x1, y1), (x2, y2)]
+        binary_image: np.array of shape (H, W) with values in {0, 255}
+    
+    """
+    logits = (logits / logits.max()) * 255
+    logits = logits.astype(np.uint8)
+    _, binary_image = cv2.threshold(logits, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    centroids = []
+    contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    for contour in contours:
+        mask = np.zeros_like(binary_image)
+        cv2.drawContours(mask, [contour], -1, (255), thickness=cv2.FILLED)
+        h, w = mask.shape
+        y_coords, x_coords = np.meshgrid(np.arange(h), np.arange(w), indexing="ij")
+        mask_indices = mask == 255
+        filtered_logits = logits[mask_indices]
+        x_coords_filtered = x_coords[mask_indices]
+        y_coords_filtered = y_coords[mask_indices]
+        weight_sum = filtered_logits.sum()
+        if weight_sum != 0:
+            cx = (x_coords_filtered * filtered_logits).sum() / weight_sum
+            cy = (y_coords_filtered * filtered_logits).sum() / weight_sum
+            centroids.append((int(cx), int(cy)))
+    centroids = [(int(x), int(y)) for x, y in centroids]
+    return centroids, binary_image
+
+def apply_lpf(signal, cutoff):
+    fft = np.fft.fft(signal)
+    fft[cutoff+1:-cutoff] = 0
+    filtered = np.real(np.fft.ifft(fft))
+    return filtered
+
+def bpm_to_frame_freq(window_len, fps, bpm):
+    beats_per_second_max = bpm / 60
+    beats_per_frame_max = beats_per_second_max / fps
+    beats_per_video_max = beats_per_frame_max * window_len
+    return int(np.ceil(beats_per_video_max))
+
+def process_video_with_diameter(video_path, 
+                                output_path, 
+                                df, 
+                                conversion_factor_X,
+                                conversion_factor_Y,
+                                scale=1.0):
+    # Load video
+    cap = cv2.VideoCapture(video_path)
+    frames = []
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        frames.append(frame)
+    cap.release()
+    frames_array = np.array(frames)
+
+    # Get coordinates from dataframe
+    x1 = df["pred_x1"].values
+    y1 = df["pred_y1"].values
+    x2 = df["pred_x2"].values
+    y2 = df["pred_y2"].values
+
+    delta_x = x2 - x1
+    delta_y = y2 - y1
+    diameters = np.sqrt((delta_x * conversion_factor_X)**2 + (delta_y * conversion_factor_Y)**2)
+
+    # Smooth diameters
+    fps = 30  # Example FPS, modify as necessary
+    cutoff = bpm_to_frame_freq(window_len=len(diameters), fps=fps, bpm=140)
+    smooth_diameters = apply_lpf(diameters, cutoff)
+
+    # Create output video
+    height, width = frames_array[0].shape[:2]
+    plot_height = int(width * 0.3)  # Plot height is 30% of video width
+    output_height = height + plot_height
+    output_width = width
+
+    out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'XVID'), fps, (output_width, output_height))
+
+    for i, frame in enumerate(tqdm(frames_array)):
+        fig, ax = plt.subplots(figsize=(8, 2))
+        ax.plot(diameters, label='Raw Diameter', alpha=0.6)
+        ax.plot(smooth_diameters, label='Smoothed Diameter', color='red')
+        ax.axvline(x=i, color='black', linestyle='--', alpha=0.5)
+        ax.legend()
+        ax.set_ylim(0, max(diameters) * 1.1)
+        ax.set_xlabel('Frame')
+        ax.set_ylabel('Diameter')
+
+        canvas = FigureCanvas(fig)
+        canvas.draw()
+        plot_image = np.frombuffer(canvas.tostring_rgb(), dtype='uint8')
+        plot_image = plot_image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+        plt.close(fig)
+
+        plot_image = cv2.resize(plot_image, (width, plot_height))
+        # Stack video frame and plot vertically
+        combined_frame = np.vstack((frame, plot_image))
+
+        out.write(cv2.cvtColor(combined_frame, cv2.COLOR_RGB2BGR))
+
+    out.release()
+    print(f"Output saved to {output_path}")
