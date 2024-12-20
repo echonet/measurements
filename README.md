@@ -62,7 +62,8 @@ pip install -r requirements.txt
 
 3. Run inference:  
 
-**3-1 and 3-3. Linear Measurement** (like IVS, LAD, AORTA)
+**3-1 and 3-3. Linear Measurement** (like IVS, LAD, AORTA)  
+
 for model_weights, please refer to --model_weights choices in the script.
 Either AVI and DICOM format works for input.
 
@@ -71,7 +72,8 @@ If you want to make frame-to-frame prediction, you should enter **Dicom images**
 python inference_2D_image.py --model_weights VARIABLE_LIKE_IVS --file_path "YOUR_ECHO_AVI_OR_DICOM_FILEPATH (480 and 640 resolution)"  --output_path "YOUR_OUTPUT_PATH.avi"
 ```
 
-**3-2. Doppler Annotation Prediction**
+**3-2. Doppler Annotation Prediction**  
+
 for model_weights, please refer to --model_weights choices in the script.
 Input should be DICOM image since specific DICOM Tag information is needed.
 ```sh
