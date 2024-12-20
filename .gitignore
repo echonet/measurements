@@ -8,7 +8,6 @@ wandb
 *.ipynb
 # *.png
 *.jpg
-*.ckpt
 *.pt
 SAMPLE_AVI
 SAMPLE_DICOM
