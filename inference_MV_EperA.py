@@ -15,6 +15,26 @@ This script is for Doppler Velocity inference specific for Mitral Valve E/A esti
 The input is a DICOM file with a Doppler region for MVpeak E/A or Peak E Velocity. 
 """
 
+parser = ArgumentParser()
+parser.add_argument("--file_path", type=str, required = True, help= "Path to the video file (both AVI and DICOM)", default=None)
+parser.add_argument("--output_path", type=str, required = True, help= "Output. Defalut should be AVI", default=None)
+args = parser.parse_args()
+
+#Configuration
+SEGMENTATION_THRESHOLD = 0.0
+DO_SIGMOID = True
+N_POINTS = 1
+
+ULTRASOUND_REGIONS_TAG = (0x0018, 0x6011)
+REGION_X0_SUBTAG = (0x0018, 0x6018)  # left
+REGION_Y0_SUBTAG = (0x0018, 0x601A)  # top
+REGION_X1_SUBTAG = (0x0018, 0x601C)  # right
+REGION_Y1_SUBTAG = (0x0018, 0x601E)  # bottom
+STUDY_DESCRIPTION_TAG = (0x0008, 0x1030)
+SERIES_DESCRIPTION_TAG = (0x0008, 0x103E)
+PHOTOMETRIC_INTERPRETATION_TAG = (0x0028, 0x0004)
+REGION_PHYSICAL_DELTA_Y_SUBTAG = (0x0018, 0x602E)
+
 def forward_pass(inputs):
     logits = backbone(inputs)["out"]
     
@@ -101,25 +121,7 @@ def forward_pass(inputs):
     return point_x1, point_y1, point_x2, point_y2
 
 
-#Configuration
-SEGMENTATION_THRESHOLD = 0.0
-DO_SIGMOID = True
-N_POINTS = 1
 
-ULTRASOUND_REGIONS_TAG = (0x0018, 0x6011)
-REGION_X0_SUBTAG = (0x0018, 0x6018)  # left
-REGION_Y0_SUBTAG = (0x0018, 0x601A)  # top
-REGION_X1_SUBTAG = (0x0018, 0x601C)  # right
-REGION_Y1_SUBTAG = (0x0018, 0x601E)  # bottom
-STUDY_DESCRIPTION_TAG = (0x0008, 0x1030)
-SERIES_DESCRIPTION_TAG = (0x0008, 0x103E)
-PHOTOMETRIC_INTERPRETATION_TAG = (0x0028, 0x0004)
-REGION_PHYSICAL_DELTA_Y_SUBTAG = (0x0018, 0x602E)
-
-parser = ArgumentParser()
-parser.add_argument("--file_path", type=str, required = True, help= "Path to the video file (both AVI and DICOM)", default=None)
-parser.add_argument("--output_path", type=str, required = True, help= "Output. Defalut should be AVI", default=None)
-args = parser.parse_args()
 
 print("Note: This script is for MV Peak E or E/A inference. Input DICOM height and width are 768/1024 respectively.")
 
@@ -130,7 +132,7 @@ if not args.output_path.endswith(".jpg"):
 
 #MODEL LOADING
 device = "cuda:0" #cpu / cuda
-weights_path = "./weights/Doppler_models/mvpeak_both_2c_width_1024.ckpt"
+weights_path = "./weights/Doppler_models/mvpeak_2c_weights.ckpt"
 weights = torch.load(weights_path)
 backbone = deeplabv3_resnet50(num_classes=2) 
 weights = {k.replace("m.", ""): v for k, v in weights.items()}
@@ -199,5 +201,5 @@ print("Output Image is saved at", args.output_path)
 
 #SAMPLE SCRIPT
 #python inference_MV_EperA.py
-#--file_path "./SAMPLE_DICOM/MVEperA_sample.dcm"
-#--output_path "./OUTPUT/SAMPLE_MVPEAK_GENERATED.jpg"
+#--file_path "./SAMPLE_DICOM/MVPEAK_SAMPLE_0.dcm"
+#--output_path "./OUTPUT/JPG/MVPEAK_SAMPLE_GENERATED.jpg"

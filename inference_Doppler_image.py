@@ -15,21 +15,19 @@ The input is a DICOM file with a Doppler region.
 The script will output the Predicted Annotation and Velocity (Like TRVMAX or AVVMAX).
 """
 
-def forward_pass(inputs):
-    logits = backbone(inputs)["out"] # torch.Size([1, 2, 480, 640])
-    # Step 1: Apply sigmoid if needed
-    if DO_SIGMOID:
-        logits = torch.sigmoid(logits)
-    # Step 2: Apply segmentation threshold if needed
-    if SEGMENTATION_THRESHOLD is not None:
-        logits[logits < SEGMENTATION_THRESHOLD] = 0.0
-    # Step 3: Convert segmentation map to coordinates
-    predictions = segmentation_to_coordinates(
-        logits,
-        normalize=False,  # Set to True if you want normalized coordinates
-        order="XY"
-    )
-    return predictions
+parser = ArgumentParser()
+parser.add_argument("--model_weights", type=str, required = True, choices=[
+            "avvmax",
+            "trvmax",
+            "mrvmax",
+            "lvotvmax",
+            "latevel", #Latral e'  
+            "medevel" #Septal e'
+        ])
+parser.add_argument("--file_path", type=str, required = True, help= "Path to the video file (both AVI and DICOM)")
+parser.add_argument("--output_path", type=str, required = True, help= "Output. Defalut should be AVI")
+args = parser.parse_args()
+
 
 #Configuration
 SEGMENTATION_THRESHOLD = 0.0
@@ -46,11 +44,23 @@ SERIES_DESCRIPTION_TAG = (0x0008, 0x103E)
 PHOTOMETRIC_INTERPRETATION_TAG = (0x0028, 0x0004)
 REGION_PHYSICAL_DELTA_Y_SUBTAG = (0x0018, 0x602E)
 
-parser = ArgumentParser()
-parser.add_argument("--model_weights", type=str, required = True, default=None)
-parser.add_argument("--file_path", type=str, required = True, help= "Path to the video file (both AVI and DICOM)", default=None)
-parser.add_argument("--output_path", type=str, required = True, help= "Output. Defalut should be AVI", default=None)
-args = parser.parse_args()
+
+
+def forward_pass(inputs):
+    logits = backbone(inputs)["out"] # torch.Size([1, 2, 480, 640])
+    # Step 1: Apply sigmoid if needed
+    if DO_SIGMOID:
+        logits = torch.sigmoid(logits)
+    # Step 2: Apply segmentation threshold if needed
+    if SEGMENTATION_THRESHOLD is not None:
+        logits[logits < SEGMENTATION_THRESHOLD] = 0.0
+    # Step 3: Convert segmentation map to coordinates
+    predictions = segmentation_to_coordinates(
+        logits,
+        normalize=False,  # Set to True if you want normalized coordinates
+        order="XY"
+    )
+    return predictions
 
 print("Note: This script is for Doppler inference. Input DICOM height and width are 768 and 1024 respectively.")
 
@@ -61,7 +71,7 @@ if not args.output_path.endswith(".jpg"):
 
 #MODEL LOADING
 device = "cuda:1" #cpu / cuda
-weights_path = f"./weights/Doppler_models/{args.model_weights}_mae_15_weights.ckpt" #args.model_weights
+weights_path = f"./weights/Doppler_models/{args.model_weights}_weights.ckpt"
 
 weights = torch.load(weights_path)
 backbone = deeplabv3_resnet50(num_classes=1)  # 39,633,986 params
@@ -71,7 +81,7 @@ backbone = backbone.to(device)
 backbone.eval()
 
 #LOAD DICOM IMAGE with DOPPLER REGION
-DICOM_FILE = args.file_path  #"./SAMPLE_DICOM/TRVMAX_Demo_5.dcm"
+DICOM_FILE = args.file_path 
 
 ds = pydicom.dcmread(DICOM_FILE)
 input_image = ds.pixel_array
@@ -125,6 +135,28 @@ print("Peak Velocity is", peak_velocity, "cm/s")
 print("Output Image is saved at", args.output_path)
 
 #SAMPLE SCRIPT
+
+#python inference_Doppler_image.py --model_weights "avvmax"
+#--file_path "./SAMPLE_DICOM/AVVMAX_SAMPLE_0.dcm"
+#--output_path "./OUTPUT/JPG/AVVMAX_SAMPLE_GENERATED.jpg"
+
 #python inference_Doppler_image.py --model_weights "trvmax" 
-#--file_path "./SAMPLE_DICOM/TRVMAX_Demo_5.dcm"
-#--output_path "./SAMPLE_AVI/SAMPLE_PLAX_GENERATED.jpg"
+#--file_path "./SAMPLE_DICOM/TRVMAX_SAMPLE_0.dcm"
+#--output_path "./OUTPUT/JPG/TRVMAX_SAMPLE_GENERATED.jpg"
+
+#python inference_Doppler_image.py --model_weights "mrvmax"
+#--file_path "./SAMPLE_DICOM/MRVMAX_SAMPLE_0.dcm"
+#--output_path "./OUTPUT/JPG/MRVMAX_SAMPLE_GENERATED.jpg"
+
+#python inference_Doppler_image.py --model_weights "lvotvmax"
+#--file_path "./SAMPLE_DICOM/LVOTVMAX_SAMPLE_0.dcm"
+#--output_path "./OUTPUT/JPG/LVOTVMAX_SAMPLE_GENERATED.jpg"
+
+#python inference_Doppler_image.py --model_weights "latevel"
+#--file_path "./SAMPLE_DICOM/LATEVEL_SAMPLE_0.dcm"
+#--output_path "./OUTPUT/JPG/LATEVEL_SAMPLE_GENERATED.jpg"
+
+#python inference_Doppler_image.py --model_weights "medevel"
+#--file_path "./SAMPLE_DICOM/MEDEVEL_SAMPLE_0.dcm"
+#--output_path "./OUTPUT/JPG/MEDEVEL_SAMPLE_GENERATED.jpg"
+

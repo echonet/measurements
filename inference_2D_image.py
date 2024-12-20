@@ -15,9 +15,19 @@ The input is a video file (AVI or DICOM) and the output is a video file (AVI) wi
 
 #Configuration
 parser = ArgumentParser()
-parser.add_argument("--model_weights", type=str, required = True, default=None)
-parser.add_argument("--file_path", type=str, required = True, help= "Path to the video file (both AVI and DICOM)", default=None)
-parser.add_argument("--output_path", type=str, required = True, help= "Output. Defalut should be AVI", default=None)
+parser.add_argument("--model_weights", type=str, required = True, choices=[
+            "ivs",
+            "lvid",
+            "lvpw",
+            "aorta",
+            "aortic_root",
+            "la",
+            "rv_base",
+            "pa",
+            "ivc",
+        ])
+parser.add_argument("--file_path", type=str, required = True, help= "Path to the video file (both AVI and DICOM)")
+parser.add_argument("--output_path", type=str, required = True, help= "Output. Defalut should be AVI")
 args = parser.parse_args()
 
 SEGMENTATION_THRESHOLD = 0.0
@@ -47,7 +57,7 @@ def forward_pass(inputs):
 print("Note: This script is for 2D frame-to-frame inference.\nOur model used the video with height of 480 and width of 640, respectively.")
 
 input_type = None
-VIDEO_FILE = args.file_path #"/workspace/yuki/measurements_internal/measurements/SAMPLE_AVI/SAMPLE_PLAX.dcm" #
+VIDEO_FILE = args.file_path
 
 if VIDEO_FILE.endswith(".avi"): input_type = "avi"
 elif VIDEO_FILE.endswith(".dcm"): input_type = "dcm"
@@ -59,7 +69,7 @@ if not args.output_path.endswith(".avi"):
 
 # MODEL LOADING
 device = "cuda:1" #cpu / cuda
-weights_path = f"/workspace/yuki/measurements_internal/measurements/weights/2D_models/{args.model_weights}_weights.ckpt"
+weights_path = f"./weights/2D_models/{args.model_weights}_weights.ckpt"
 weights = torch.load(weights_path)
 backbone = deeplabv3_resnet50(num_classes=2)  # 39,633,986 params / num_classes should be 2
 weights = {k.replace("m.", ""): v for k, v in weights.items()}
@@ -119,7 +129,7 @@ predictions = torch.cat(predictions, dim=0)
 predictions = predictions.cpu().numpy()
 
 #Make Output Video
-output_video_path = args.output_path #"/workspace/yuki/measurements_internal/measurements/SAMPLE_AVI/SAMPLE_PLAX_GENERATED.avi" #
+output_video_path = args.output_path
 out_avi = cv2.VideoWriter(
             output_video_path,
             cv2.VideoWriter_fourcc(*"XVID"),
@@ -180,15 +190,44 @@ if input_type == "dcm":
     print("Distance between two points is calculated from .dcm input.")
     print(f"Completed.Please check {output_video_path.replace('.avi', '_distance.avi')}")
 
+
 #SAMPLE SCRIPT
+
 #python inference_2D_image.py --model_weights "ivs" 
-#--file_path "./SAMPLE_AVI/SAMPLE_PLAX.avi" 
-#--output_path "./SAMPLE_AVI/SAMPLE_PLAX_GENERATED.avi"
+#--file_path "./SAMPLE_DICOM/IVS_SAMPLE_0.dcm" 
+#--output_path "./OUTPUT/AVI/IVS_SAMPLE_GENERATED.avi"
 
 #python inference_2D_image.py --model_weights "lvid" 
-#--file_path "./SAMPLE_DICOM/LVID_SAMPLE.dcm"
-#--output_path "./SAMPLE_AVI/SAMPLE_LVID_GENERATED.avi"
+#--file_path "./SAMPLE_DICOM/LVID_SAMPLE_0.dcm" 
+#--output_path "./OUTPUT/AVI/LVID_SAMPLE_GENERATED.avi"
 
+#python inference_2D_image.py --model_weights "lvpw"
+#--file_path "./SAMPLE_DICOM/LVPW_SAMPLE_0.dcm"
+#--output_path "./OUTPUT/AVI/LVPW_SAMPLE_GENERATED.avi"
+
+#python inference_2D_image.py --model_weights "aorta"
+#--file_path "./SAMPLE_DICOM/AORTA_SAMPLE_0.dcm"
+#--output_path "./OUTPUT/AVI/AORTA_SAMPLE_GENERATED.avi"
+
+#python inference_2D_image.py --model_weights "aortic_root"
+#--file_path "./SAMPLE_DICOM/AORTIC_ROOT_SAMPLE_0.dcm"
+#--output_path "./OUTPUT/AVI/AORTIC_ROOT_SAMPLE_GENERATED.avi"
+
+#python inference_2D_image.py --model_weights "la"
+#--file_path "./SAMPLE_DICOM/LA_SAMPLE_0.dcm"
+#--output_path "./OUTPUT/AVI/LA_SAMPLE_GENERATED.avi"
+
+#python inference_2D_image.py --model_weights "rv_base"
+#--file_path "./SAMPLE_DICOM/RV_BASE_SAMPLE_0.dcm"
+#--output_path "./OUTPUT/AVI/RV_BASE_SAMPLE_GENERATED.avi"
+
+#python inference_2D_image.py --model_weights "pa"
+#--file_path "./SAMPLE_DICOM/PA_SAMPLE_0.dcm"
+#--output_path "./OUTPUT/AVI/PA_SAMPLE_GENERATED.avi"
+
+#python inference_2D_image.py --model_weights "ivc"
+#--file_path "./SAMPLE_DICOM/IVC_SAMPLE_0.dcm"
+#--output_path "./OUTPUT/AVI/IVC_SAMPLE_GENERATED.avi"
 
 #S  03_/generate_overlay.py
 #S  03_/inference_video_burntin.py

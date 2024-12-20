@@ -73,7 +73,7 @@ Input should be DICOM image since specific DICOM Tag information is needed.
 python inference_Doppler_image.py --model_weights "VARIABLE_LIKE_TRVMAX"  --file_path "YOUR_DICOM.dcm" --output_path "YOUR_OUTPUT_PATH.jpg"
 ```
 
-<img src="https://github.com/echonet/measurements/blob/main/image/sample_output_31and32.png" alt="Sample Echo Frame" width="600"/>
+<img src="https://github.com/echonet/measurements/blob/main/image/OutPut_Predicted_Images.png" alt="Sample Echo Frame" width="600"/>
 
 
 ## Gradio Demo Sample

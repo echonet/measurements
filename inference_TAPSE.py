@@ -14,6 +14,28 @@ The input is a DICOM file with a TAPSE measurement region.
 The script will output the Predicted Annotation and Velocity (Like TRVMAX or AVVMAX).
 """
 
+parser = ArgumentParser()
+parser.add_argument("--file_path", type=str, required = True, help= "Path to the video file (both AVI and DICOM)", default=None)
+parser.add_argument("--output_path", type=str, required = True, help= "Output. Defalut should be AVI", default=None)
+args = parser.parse_args()
+
+#Configuration
+SEGMENTATION_THRESHOLD = 0.0
+DO_SIGMOID = True
+N_POINTS = 1
+
+ULTRASOUND_REGIONS_TAG = (0x0018, 0x6011)
+REGION_X0_SUBTAG = (0x0018, 0x6018)  # left
+REGION_Y0_SUBTAG = (0x0018, 0x601A)  # top
+REGION_X1_SUBTAG = (0x0018, 0x601C)  # right
+REGION_Y1_SUBTAG = (0x0018, 0x601E)  # bottom
+STUDY_DESCRIPTION_TAG = (0x0008, 0x1030)
+SERIES_DESCRIPTION_TAG = (0x0008, 0x103E)
+PHOTOMETRIC_INTERPRETATION_TAG = (0x0028, 0x0004)
+REGION_PHYSICAL_DELTA_X_SUBTAG = (0x0018, 0x602C)
+REGION_PHYSICAL_DELTA_Y_SUBTAG = (0x0018, 0x602E)
+
+
 def forward_pass(inputs):
     logits = backbone(inputs)["out"]
     
@@ -94,26 +116,6 @@ def forward_pass(inputs):
 
     return point_x1, point_y1, point_x2, point_y2
 
-#Configuration
-SEGMENTATION_THRESHOLD = 0.0
-DO_SIGMOID = True
-N_POINTS = 1
-
-ULTRASOUND_REGIONS_TAG = (0x0018, 0x6011)
-REGION_X0_SUBTAG = (0x0018, 0x6018)  # left
-REGION_Y0_SUBTAG = (0x0018, 0x601A)  # top
-REGION_X1_SUBTAG = (0x0018, 0x601C)  # right
-REGION_Y1_SUBTAG = (0x0018, 0x601E)  # bottom
-STUDY_DESCRIPTION_TAG = (0x0008, 0x1030)
-SERIES_DESCRIPTION_TAG = (0x0008, 0x103E)
-PHOTOMETRIC_INTERPRETATION_TAG = (0x0028, 0x0004)
-REGION_PHYSICAL_DELTA_X_SUBTAG = (0x0018, 0x602C)
-REGION_PHYSICAL_DELTA_Y_SUBTAG = (0x0018, 0x602E)
-
-parser = ArgumentParser()
-parser.add_argument("--file_path", type=str, required = True, help= "Path to the video file (both AVI and DICOM)", default=None)
-parser.add_argument("--output_path", type=str, required = True, help= "Output. Defalut should be AVI", default=None)
-args = parser.parse_args()
 
 print("Note: This script is for TAPSE inference. Input DICOM and height and width are 768/1024 respectively.")
 
@@ -124,7 +126,7 @@ if not args.output_path.endswith(".jpg"):
 
 
 device = "cuda:1"
-weights_path = "./weights/Doppler_models/tapse_both_2c_width_1024.ckpt"
+weights_path = "./weights/Doppler_models/tapse_2c_weights.ckpt"
 weights = torch.load(weights_path)
 backbone = deeplabv3_resnet50(num_classes=2) 
 weights = {k.replace("m.", ""): v for k, v in weights.items()}
@@ -192,10 +194,10 @@ with torch.no_grad():
     cv2.line(input_image, (point_x1, point_y1 + y0), (point_x2, point_y2 + y0), (255, 0, 0), 2)
     plt.savefig(args.output_path)
 
-print("Predicted TAPSE is", calculated_TAPSE, "cm/s")
+print("Predicted TAPSE is", calculated_TAPSE, "cm")
 print("Output Image is saved at", args.output_path)
 
 # SAMPLE SCRIPT
 #python inference_TAPSE.py 
-#--file_path "./SAMPLE_DICOM/TAPSE_sample.dcm"
-#--output_path "./OUTPUT/SAMPLE_TAPSE_GENERATED.jpg"
+#--file_path "./SAMPLE_DICOM/TAPSE_SAMPLE_0.dcm"
+#--output_path "./OUTPUT/JPG/TAPSE_SAMPLE_GENERATED.jpg"
