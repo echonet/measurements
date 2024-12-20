@@ -51,7 +51,8 @@ cd your-repository-name
 pip install -r requirements.txt
 ```
 
-3. Run inference:
+3. Run inference:  
+
 **3-1 and 3-3. Linear Measurement** (like IVS, LAD, AORTA)
 for model_weights, please refer to --model_weights choices in the script.
 Either AVI and DICOM format works for input.
@@ -72,6 +73,9 @@ python inference_Doppler_image.py --model_weights "VARIABLE_LIKE_TRVMAX"  --file
 
 
 ## Gradio Demo Sample
+
+See, gradio.py (sample for TRVMAX)
+
 **Important Notes on Demo Videos**
 Demo videos that illustrate how the model works in real-world applications. At this time, demo App are not publicly released because the Dicom data typically contains personal information and Gradio does not fully comply with HIPAA (Health Insurance Portability and Accountability Act) standards. 
 To protect patient privacy and sensitive information, we have decided not to make the demo videos publicly available. Herein, we used **de-identified Dicom files** for this demo.
