@@ -12,10 +12,10 @@ Herein, we show gif file. Please refer `videos/EchoNet_Annotation.mp4` if you wa
 
 ![Representative Videos for 2D Auto-Annotated Echocardiography](videos/EchoNet_Annotation.gif)
 
-**<2D. B-mode Linear Measurement Echo DL vs Human>**
+**2D. B-mode Linear Measurement Echo DL vs Human**
 <img src="https://github.com/echonet/measurements/blob/main/image/Echocardiography_2D_AutoMeasurement_vs_Human.png" alt="2D Echo DL vs Human" width="600"/>
 
-**<Doppler Measurement Echo DL vs Human>**
+**Doppler Measurement Echo DL vs Human**
 
 <img src="https://github.com/echonet/measurements/blob/main/image/Echocardiography_Doppler_AutoMeasurement_vs_Human.png" alt="Doppler DL vs Human" width="600"/>
 
