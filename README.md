@@ -8,7 +8,7 @@ This project focuses on building a deep-learning model that can automatically an
 
 Herein, we show gif file. Please refer `videos/EchoNet_Annotation.mp4` if you want see video file.
 
-**<Frame-to-frame predictions>**
+**Frame-to-frame predictions (gif)**
 
 ![Representative Videos for 2D Auto-Annotated Echocardiography](videos/EchoNet_Annotation.gif)
 
