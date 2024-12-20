@@ -48,7 +48,7 @@ def forward_pass(inputs):
 
 
 device = "cuda" #cpu / cuda
-weights_path = "./weights/Doppler_models/trvmax_weights.ckpt"
+weights_path = "./weights/Doppler_models/trvmax_weights.ckpt" #This is a demo for TRVMAX.
 weights = torch.load(weights_path)
 backbone = deeplabv3_resnet50(num_classes=1)  # 39,633,986 params
 weights = {k.replace("m.", ""): v for k, v in weights.items()}
@@ -105,7 +105,7 @@ def process_dicom(file):
 
 iface = gr.Interface(
     fn=process_dicom, 
-    inputs=gr.File(label="Upload DICOM file (Note: version 1.0.0)"), 
+    inputs=gr.File(label="Upload DICOM file"), 
     outputs=[gr.Textbox(label="Predicted TRVMax Velocity (cm/s)"), gr.Image(label="Doppler Plotting on Dicom image")], 
     title="Gradio demo for CW Doppler Waveform Prediction"
 )

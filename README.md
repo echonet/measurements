@@ -7,9 +7,18 @@ This repository contains the deep learning model used for automatic annotation f
 This project focuses on building a deep-learning model that can automatically annotate specific measurements from echocardiographic videos or images. Annotation of measurements on images is typically a time-consuming task for cardiologists and sonographer, especially with the growing volume of echocardiographic exams being performed. Automating this process has the potential to significantly improve efficiency in clinical workflows, and potentially reduce human-error, and allow high-throughput cardiovascular research using echocardiography. Our model aims to streamline this annotation process and guide parameter measurements with faster and more accurate manner.
 
 Herein, we show gif file. Please refer `videos/EchoNet_Annotation.mp4` if you want see video file.
+
+**<Frame-to-frame predictions>**
+
 ![Representative Videos for 2D Auto-Annotated Echocardiography](videos/EchoNet_Annotation.gif)
 
-<img src="https://github.com/echonet/measurements/blob/main/image/Echocardiography_2D_AutoMeasurement_vs_Human.png" alt="Sample Echo Frame" width="600"/>
+**<2D. B-mode Linear Measurement Echo DL vs Human>**
+<img src="https://github.com/echonet/measurements/blob/main/image/Echocardiography_2D_AutoMeasurement_vs_Human.png" alt="2D Echo DL vs Human" width="600"/>
+
+**<Doppler Measurement Echo DL vs Human>**
+
+<img src="https://github.com/echonet/measurements/blob/main/image/Echocardiography_Doppler_AutoMeasurement_vs_Human.png" alt="Doppler DL vs Human" width="600"/>
+
 
 - **Presentation**: Conference information will be updated.  
 - **Preprint**: link will be added once preprint is released  
