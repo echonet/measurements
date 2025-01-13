@@ -54,13 +54,7 @@ def forward_pass(inputs):
     # Step 2: Apply segmentation threshold if needed
     if SEGMENTATION_THRESHOLD is not None:
         logits[logits < SEGMENTATION_THRESHOLD] = 0.0
-    # Step 3: Convert segmentation map to coordinates
-    predictions = segmentation_to_coordinates(
-        logits,
-        normalize=False,  # Set to True if you want normalized coordinates
-        order="XY"
-    )
-    return predictions
+    return logits #predictions: weighted average of logits. logits: raw output from the model
 
 print("Note: This script is for Doppler inference. Input DICOM height and width are 768 and 1024 respectively.")
 
@@ -110,6 +104,7 @@ print("Doppler Region is located: X ranged from", x0, "to ", x1, ". Y ranged fro
 
 #horizontal line means the line where the Doppler signal starts
 horizontal_y = find_horizontal_line(ds.pixel_array[y0:y1, :])
+print("In Doppler image, horizontal Line is located at Y=", horizontal_y)
 #Basically, the region where the Doppler signal starts is 342-345. We truncate the image from 342 to 768. Make 426*1024.
 input_dicom_doppler_area = ds.pixel_array[342 :,:, :] 
 doppler_area_tensor = torch.tensor(input_dicom_doppler_area)
@@ -118,9 +113,16 @@ doppler_area_tensor = doppler_area_tensor.float() / 255.0
 doppler_area_tensor = doppler_area_tensor.to(device) #torch.Size([1, 3, 426, 1024])
 
 with torch.no_grad():
-    model_output = forward_pass(doppler_area_tensor)
-    X = model_output[0, 0, 0].item()  # Predicted X value
-    Y = model_output[0, 0, 1].item()  # Predicted Y value in the Doppler Region
+    logit = forward_pass(doppler_area_tensor)
+    
+    max_val = logit.max().item()
+    min_val = logit.min().item()
+    logits_normalized = (logit - min_val) / (max_val - min_val)
+    logits_normalized = logits_normalized.squeeze().cpu().numpy()
+    max_coords = np.unravel_index(np.argmax(logits_normalized), logits_normalized.shape)
+    
+    X = max_coords[1]  # Max Logit X value
+    Y = max_coords[0] # Max Logit Y value in the Doppler Region
     predicted_x = int(X) 
     predicted_y = int(Y + y0) #add y0 to get the actual y value in the original image to map
     
