@@ -49,20 +49,19 @@ Herein, we show gif file. Please refer `videos/EchoNet_Annotation.mp4` if you wa
 
 
 ## How to Use:
-1. Clone the repository:
+**1. Clone the repository**:
 ```sh
 git clone https://github.com/echonet/measurements.git
 cd your-repository-name
 ```
 
-2. Install dependencies:
+**2. Install dependencies**:
 ```sh
 pip install -r requirements.txt
 ```
 
-3. Run inference:  
-
-**3-1 and 3-3. Linear Measurement** (like IVS, LAD, AORTA)  
+**3. Run inference**:  
+- **3-1 and 3-3. Linear Measurement** (like IVS, LAD, AORTA)  
 
 for model_weights, please refer to --model_weights choices in the script.
 Either AVI and DICOM format works for input.
@@ -72,13 +71,16 @@ If you want to make frame-to-frame prediction, you should enter **Dicom images**
 python inference_2D_image.py --model_weights VARIABLE_LIKE_IVS --file_path "YOUR_ECHO_AVI_OR_DICOM_FILEPATH (480 and 640 resolution)"  --output_path "YOUR_OUTPUT_PATH.avi"
 ```
 
-**3-2. Doppler Annotation Prediction**  
+- **3-2. Doppler Annotation Prediction**  
 
 for model_weights, please refer to --model_weights choices in the script.
 Input should be DICOM image since specific DICOM Tag information is needed.
 ```sh
 python inference_Doppler_image.py --model_weights "VARIABLE_LIKE_TRVMAX"  --file_path "YOUR_DICOM.dcm" --output_path "YOUR_OUTPUT_PATH.jpg"
 ```
+
+- `inference_XXXXX_folders.py` process a folder of DICOM files for inference. These outputs annotated images and saves predicted_measurement and metadatato a CSV file.
+For examples, `inference_Doppler_image.py` process one Dicom images, but `inference_Doppler_image_folders.py` processes multiple files and create csv files.
 
 <img src="https://github.com/echonet/measurements/blob/main/image/OutPut_Predicted_Images.png" alt="Sample Echo Frame" width="600"/>
 
