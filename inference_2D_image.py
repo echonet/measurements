@@ -68,9 +68,9 @@ if not args.output_path.endswith(".avi"):
     raise ValueError("Output path must be .avi")
 
 # MODEL LOADING
-device = "cuda:1" #cpu / cuda
+device = "cuda:0" #cpu / cuda
 weights_path = f"./weights/2D_models/{args.model_weights}_weights.ckpt"
-weights = torch.load(weights_path)
+weights = torch.load(weights_path, map_location=device)
 backbone = deeplabv3_resnet50(num_classes=2)  # 39,633,986 params / num_classes should be 2
 weights = {k.replace("m.", ""): v for k, v in weights.items()}
 print(backbone.load_state_dict(weights)) #says <All keys matched successfully>

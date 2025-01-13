@@ -54,8 +54,6 @@ def forward_pass(inputs):
         logits[logits < SEGMENTATION_THRESHOLD] = 0.0
     return logits #predictions: weighted average of logits. logits: raw output from the model
 
-print("Note: This script is for Doppler inference. Input DICOM height and width are 768 and 1024 respectively.")
-
 #MODEL LOADING
 device = "cuda:0" #cpu / cuda
 weights_path = f"./weights/Doppler_models/{args.model_weights}_weights.ckpt"
@@ -68,11 +66,10 @@ backbone = backbone.to(device)
 backbone.eval()
 
 #Saved metadata and results
-filenames, measurement_names, PhotometricInterpretations, ultrasound_color_data_presents, y0s, horizontal_lines, predicted_xs, predicted_ys, peak_velocities = [], [], [], [], [], [], [], [], []
+results =[]
 
 #LOAD DICOM IMAGE with DOPPLER REGION
-DICOM_FOLDRS = args.folders
-DICOM_FILES = [os.path.join(DICOM_FOLDRS, f) for f in os.listdir(DICOM_FOLDRS) if f.endswith(".dcm")]
+DICOM_FILES = [os.path.join(args.folders, f) for f in os.listdir(args.folders) if f.endswith(".dcm")]
 
 if args.output_path_folders:
     OUTPUT_FOLDERS = args.output_path_folders
@@ -80,96 +77,98 @@ if args.output_path_folders:
         os.makedirs(OUTPUT_FOLDERS)
 
 for DICOM_FILE in DICOM_FILES:
-    
-    
-    
-    ds = pydicom.dcmread(DICOM_FILE)
-    input_image = ds.pixel_array
-    
-    if PHOTOMETRIC_INTERPRETATION_TAG in ds:
-        PhotometricInterpretation = ds[PHOTOMETRIC_INTERPRETATION_TAG].value
-    else:
-        PhotometricInterpretation = np.nan
-    
-    if PhotometricInterpretation == 'MONOCHROME2':
-        input_image = np.stack((input_image,) * 3, axis=-1)
-    elif PhotometricInterpretation == "YBR_FULL_422" and len(input_image.shape) == 3:
-        input_image = convert_color_space(arr=input_image, current="YBR_FULL_422", desired="RGB")
-        ecg_mask = np.logical_and(input_image[:, :, 1] > 200, input_image[:, :, 0] < 100)
-        input_image[ecg_mask, :] = 0
-    elif PhotometricInterpretation == "RGB": 
-        ecg_mask = np.logical_and(input_image[:, :, 1] > 200, input_image[:, :, 0] < 100)
-        input_image[ecg_mask, :] = 0
-        # pass
-    else:
-        print("Unsupported Photometric Interpretation")
-        continue
-    
-    if ULTRASOUND_COLOR_DATA_PRESENT_TAG in ds: ultrasound_color_data_present = ds[ULTRASOUND_COLOR_DATA_PRESENT_TAG].value
-    else: ultrasound_color_data_present = np.nan
-    
-    #"Need Specific DICOM Region TAG for Doppler. It is typically saved in the DICOM file."
-    doppler_region = get_coordinates_from_dicom(ds)[0]
-    if REGION_PHYSICAL_DELTA_Y_SUBTAG in doppler_region: conversion_factor = abs(doppler_region[REGION_PHYSICAL_DELTA_Y_SUBTAG].value)
-    if REGION_Y0_SUBTAG in doppler_region:  y0 = doppler_region[REGION_Y0_SUBTAG].value
-    if REGION_Y1_SUBTAG in doppler_region:  y1 = doppler_region[REGION_Y1_SUBTAG].value
-    if REGION_X0_SUBTAG in doppler_region:  x0 = doppler_region[REGION_X0_SUBTAG].value
-    if REGION_X1_SUBTAG in doppler_region:  x1 = doppler_region[REGION_X1_SUBTAG].value
-
-    #horizontal line means the line where the Doppler signal starts
-    horizontal_y = find_horizontal_line(ds.pixel_array[y0:y1, :])
-    #Basically, the region where the Doppler signal starts is 342-345. We truncate the image from 342 to 768. Make 426*1024.
-    input_dicom_doppler_area = input_image[342 :,:, :] 
-    doppler_area_tensor = torch.tensor(input_dicom_doppler_area)
-    doppler_area_tensor = doppler_area_tensor.permute(2, 0, 1).unsqueeze(0)
-    doppler_area_tensor = doppler_area_tensor.float() / 255.0
-    doppler_area_tensor = doppler_area_tensor.to(device) #torch.Size([1, 3, 426, 1024])
-
-    with torch.no_grad():
-        logit = forward_pass(doppler_area_tensor)
+    try:
+        ds = pydicom.dcmread(DICOM_FILE)
+        input_image = ds.pixel_array
         
-        max_val = logit.max().item()
-        min_val = logit.min().item()
-        logits_normalized = (logit - min_val) / (max_val - min_val)
-        logits_normalized = logits_normalized.squeeze().cpu().numpy()
-        max_coords = np.unravel_index(np.argmax(logits_normalized), logits_normalized.shape)
+        if PHOTOMETRIC_INTERPRETATION_TAG in ds:
+            PhotometricInterpretation = ds[PHOTOMETRIC_INTERPRETATION_TAG].value
+        else:
+            PhotometricInterpretation = np.nan
         
-        X = max_coords[1]  # Max Logit X value
-        Y = max_coords[0]  # Max Logit Y value in the Doppler Region
-        predicted_x = int(X) 
-        predicted_y = int(Y + y0) #add y0 to get the actual y value in the original image to map
+        if PhotometricInterpretation == 'MONOCHROME2':
+            input_image = np.stack((input_image,) * 3, axis=-1)
+        elif PhotometricInterpretation == "YBR_FULL_422" and len(input_image.shape) == 3:
+            input_image = convert_color_space(arr=input_image, current="YBR_FULL_422", desired="RGB")
+            ecg_mask = np.logical_and(input_image[:, :, 1] > 200, input_image[:, :, 0] < 100)
+            input_image[ecg_mask, :] = 0
+        elif PhotometricInterpretation == "RGB": 
+            ecg_mask = np.logical_and(input_image[:, :, 1] > 200, input_image[:, :, 0] < 100)
+            input_image[ecg_mask, :] = 0
+            # pass
+        else:
+            print("Unsupported Photometric Interpretation")
+            continue
         
-        peak_velocity = conversion_factor * (predicted_y - (y0 + horizontal_y))
-        peak_velocity = round(peak_velocity, 2)
+        if ULTRASOUND_COLOR_DATA_PRESENT_TAG in ds: ultrasound_color_data_present = ds[ULTRASOUND_COLOR_DATA_PRESENT_TAG].value
+        else: ultrasound_color_data_present = np.nan
         
-        if args.output_path_folders:
-            OUTPUT_FILES = os.path.join(OUTPUT_FOLDERS, os.path.basename(DICOM_FILE).replace(".dcm", ".jpg"))
-            plt.figure(figsize=(4, 4))
-            cv2.circle(input_image, (predicted_x, predicted_y), 10, (135, 206, 235), -1)
-            plt.imshow(input_image, cmap='gray')
-            plt.savefig(OUTPUT_FILES)
+        #"Need Specific DICOM Region TAG for Doppler. It is typically saved in the DICOM file."
+        doppler_region = get_coordinates_from_dicom(ds)[0]
+        if REGION_PHYSICAL_DELTA_Y_SUBTAG in doppler_region: conversion_factor = abs(doppler_region[REGION_PHYSICAL_DELTA_Y_SUBTAG].value)
+        if REGION_Y0_SUBTAG in doppler_region:  y0 = doppler_region[REGION_Y0_SUBTAG].value
+        if REGION_Y1_SUBTAG in doppler_region:  y1 = doppler_region[REGION_Y1_SUBTAG].value
+        if REGION_X0_SUBTAG in doppler_region:  x0 = doppler_region[REGION_X0_SUBTAG].value
+        if REGION_X1_SUBTAG in doppler_region:  x1 = doppler_region[REGION_X1_SUBTAG].value
 
-    filenames.append(DICOM_FILE)
-    measurement_names.append(args.model_weights)
-    PhotometricInterpretations.append(PhotometricInterpretation)
-    ultrasound_color_data_presents.append(ultrasound_color_data_present)
-    y0s.append(y0)
-    horizontal_lines.append(horizontal_y)
-    predicted_xs.append(predicted_x)
-    predicted_ys.append(predicted_y)
-    peak_velocities.append(peak_velocity)
+        if y0 <340 or y0 > 350:
+            print("Error: Doppler Region is not located in the correct position. Please check the DICOM file. Our developed model is trained with y0 Doppler Region located in 342-348.")
+            continue
+        
+        #horizontal line means the line where the Doppler signal starts
+        horizontal_y = find_horizontal_line(ds.pixel_array[y0:y1, :])
+        #Basically, the region where the Doppler signal starts is 342-345. We truncate the image from 342 to 768. Make 426*1024.
+        input_dicom_doppler_area = input_image[342 :,:, :] 
+        doppler_area_tensor = torch.tensor(input_dicom_doppler_area)
+        doppler_area_tensor = doppler_area_tensor.permute(2, 0, 1).unsqueeze(0)
+        doppler_area_tensor = doppler_area_tensor.float() / 255.0
+        doppler_area_tensor = doppler_area_tensor.to(device) #torch.Size([1, 3, 426, 1024])
 
-metadata = pd.DataFrame({
-    "filename": filenames,
-    "measurement_name": measurement_names,
-    "PhotometricInterpretation": PhotometricInterpretations,
-    "ultrasound_color_data_present": ultrasound_color_data_presents,
-    "y0": y0s,
-    "horizontal_line": horizontal_lines,
-    "predicted_x": predicted_xs,
-    "predicted_y": predicted_ys,
-    "peak_velocity": peak_velocities
-})
+        with torch.no_grad():
+            logit = forward_pass(doppler_area_tensor)
+            
+            max_val = logit.max().item()
+            min_val = logit.min().item()
+            logits_normalized = (logit - min_val) / (max_val - min_val)
+            logits_normalized = logits_normalized.squeeze().cpu().numpy()
+            max_coords = np.unravel_index(np.argmax(logits_normalized), logits_normalized.shape)
+            
+            X = max_coords[1]  # Max Logit X value
+            Y = max_coords[0]  # Max Logit Y value in the Doppler Region
+            predicted_x = int(X) 
+            predicted_y = int(Y + y0) #add y0 to get the actual y value in the original image to map
+            
+            peak_velocity = conversion_factor * (predicted_y - (y0 + horizontal_y))
+            peak_velocity = round(peak_velocity, 2)
+            
+            if args.output_path_folders:
+                OUTPUT_FILES = os.path.join(OUTPUT_FOLDERS, os.path.basename(DICOM_FILE).replace(".dcm", ".jpg"))
+                plt.figure(figsize=(4, 4))
+                cv2.circle(input_image, (predicted_x, predicted_y), 10, (135, 206, 235), -1)
+                plt.imshow(input_image, cmap='gray')
+                plt.savefig(OUTPUT_FILES)
+                
+        results.append({
+            "filename": DICOM_FILE,
+            "measurement_name": args.model_weights,
+            
+            #Metadatas
+            "PhotometricInterpretation": PhotometricInterpretation,
+            "ultrasound_color_data_present": ultrasound_color_data_present,
+            "PhysicalDeltaY": conversion_factor,
+            "y0": y0,
+            
+            #Predicted Values
+            "horizontal_line": horizontal_y,
+            "predicted_x": predicted_x,
+            "predicted_y": predicted_y,
+            "peak_velocity": peak_velocity
+        })
+        
+    except Exception as e:
+        print(f"Error:{DICOM_FILE},  {e}")
+
+metadata = pd.DataFrame(results)
 
 if args.output_path_folders:
     metadata.to_csv(os.path.join(OUTPUT_FOLDERS, "metadata.csv"), index=False)

@@ -22,7 +22,6 @@ args = parser.parse_args()
 #Configuration
 SEGMENTATION_THRESHOLD = 0.0
 DO_SIGMOID = True
-N_POINTS = 1
 
 ULTRASOUND_REGIONS_TAG = (0x0018, 0x6011)
 REGION_X0_SUBTAG = (0x0018, 0x6018)  # left
@@ -125,9 +124,9 @@ if not args.output_path.endswith(".jpg"):
     raise ValueError("Output path must be .jpg / jpg is not recommended for the final output since we need to have REGION_PHYSICAL_DELTA_SUBTAG to calculate the TAPSE distance")
 
 
-device = "cuda:1"
+device = "cuda:0"
 weights_path = "./weights/Doppler_models/tapse_2c_weights.ckpt"
-weights = torch.load(weights_path)
+weights = torch.load(weights_path, map_location=device)
 backbone = deeplabv3_resnet50(num_classes=2) 
 weights = {k.replace("m.", ""): v for k, v in weights.items()}
 print(backbone.load_state_dict(weights)) #says <All keys matched successfully>
@@ -137,14 +136,18 @@ backbone.eval()
 
 DICOM_FILE =  args.file_path
 
-
 ds = pydicom.dcmread(DICOM_FILE)
 input_image = ds.pixel_array
 if ds.PhotometricInterpretation == 'MONOCHROME2':
     input_image = np.stack((input_image,) * 3, axis=-1)
 elif ds.PhotometricInterpretation == "YBR_FULL_422" and len(input_image.shape) == 3:
     input_image = convert_color_space(arr=input_image, current="YBR_FULL_422", desired="RGB")
+    #Heuristic to mask EKG (green line) / select green > 200 and blue < 100 to Mask 0
+    ecg_mask = np.logical_and(input_image[:, :, 1] > 200, input_image[:, :, 0] < 100)
+    input_image[ecg_mask, :] = 0
 elif ds.PhotometricInterpretation == "RGB": 
+    ecg_mask = np.logical_and(input_image[:, :, 1] > 200, input_image[:, :, 0] < 100)
+    input_image[ecg_mask, :] = 0
     pass
 else:
     ValueError("Unsupported Photometric Interpretation")
