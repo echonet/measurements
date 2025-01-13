@@ -24,8 +24,8 @@ parser.add_argument("--model_weights", type=str, required = True, choices=[
             "latevel", #Latral e'  
             "medevel" #Septal e'
         ])
-parser.add_argument("--file_path", type=str, required = True, help= "Path to the video file (both AVI and DICOM)")
-parser.add_argument("--output_path", type=str, required = True, help= "Output. Defalut should be AVI")
+parser.add_argument("--file_path", type=str, required = True, help= "Path to the Dicom file (.dcm)")
+parser.add_argument("--output_path", type=str, required = True, help= "Output. Defalut -> jpg")
 args = parser.parse_args()
 
 
@@ -64,10 +64,10 @@ if not args.output_path.endswith(".jpg"):
     raise ValueError("Output path must be .jpg")
 
 #MODEL LOADING
-device = "cuda:1" #cpu / cuda
+device = "cuda:0" #cpu / cuda
 weights_path = f"./weights/Doppler_models/{args.model_weights}_weights.ckpt"
 
-weights = torch.load(weights_path)
+weights = torch.load(weights_path, map_location=device)
 backbone = deeplabv3_resnet50(num_classes=1)  # 39,633,986 params
 weights = {k.replace("m.", ""): v for k, v in weights.items()}
 print(backbone.load_state_dict(weights)) #<All keys matched successfully>
@@ -83,8 +83,13 @@ if ds.PhotometricInterpretation == 'MONOCHROME2':
     input_image = np.stack((input_image,) * 3, axis=-1)
 elif ds.PhotometricInterpretation == "YBR_FULL_422" and len(input_image.shape) == 3:
     input_image = convert_color_space(arr=input_image, current="YBR_FULL_422", desired="RGB")
+    #Heuristic to mask EKG (green line) / select green > 200 and blue < 100 to Mask 0
+    ecg_mask = np.logical_and(input_image[:, :, 1] > 200, input_image[:, :, 0] < 100)
+    input_image[ecg_mask, :] = 0
 elif ds.PhotometricInterpretation == "RGB": 
-    pass
+    ecg_mask = np.logical_and(input_image[:, :, 1] > 200, input_image[:, :, 0] < 100)
+    input_image[ecg_mask, :] = 0
+    # pass
 else:
     print("Unsupported Photometric Interpretation")
     
@@ -106,7 +111,7 @@ print("Doppler Region is located: X ranged from", x0, "to ", x1, ". Y ranged fro
 horizontal_y = find_horizontal_line(ds.pixel_array[y0:y1, :])
 print("In Doppler image, horizontal Line is located at Y=", horizontal_y)
 #Basically, the region where the Doppler signal starts is 342-345. We truncate the image from 342 to 768. Make 426*1024.
-input_dicom_doppler_area = ds.pixel_array[342 :,:, :] 
+input_dicom_doppler_area = input_image[342 :,:, :] 
 doppler_area_tensor = torch.tensor(input_dicom_doppler_area)
 doppler_area_tensor = doppler_area_tensor.permute(2, 0, 1).unsqueeze(0)
 doppler_area_tensor = doppler_area_tensor.float() / 255.0
