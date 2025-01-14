@@ -24,19 +24,8 @@ args = parser.parse_args()
 SEGMENTATION_THRESHOLD = 0.0
 DO_SIGMOID = True
 
-ULTRASOUND_REGIONS_TAG = (0x0018, 0x6011)
-REGION_X0_SUBTAG = (0x0018, 0x6018)  # left
-REGION_Y0_SUBTAG = (0x0018, 0x601A)  # top
-REGION_X1_SUBTAG = (0x0018, 0x601C)  # right
-REGION_Y1_SUBTAG = (0x0018, 0x601E)  # bottom
-STUDY_DESCRIPTION_TAG = (0x0008, 0x1030)
-SERIES_DESCRIPTION_TAG = (0x0008, 0x103E)
 PHOTOMETRIC_INTERPRETATION_TAG = (0x0028, 0x0004)
-REGION_PHYSICAL_DELTA_X_SUBTAG = (0x0018, 0x602C)
-REGION_PHYSICAL_DELTA_Y_SUBTAG = (0x0018, 0x602E)
 ULTRASOUND_COLOR_DATA_PRESENT_TAG = (0x0028, 0x0014)
-
-
 
 def forward_pass(inputs):
     logits = backbone(inputs)["out"]
@@ -166,8 +155,6 @@ for DICOM_FILE in DICOM_FILES:
         PhysicalDeltaY_doppler = abs(doppler_region.get((0x0018, 0x602E)).value)
         y0 = doppler_region.get((0x0018, 0x601A)).value
         y1 = doppler_region.get((0x0018, 0x601E)).value
-        x0 = doppler_region.get((0x0018, 0x6018)).value
-        x1 = doppler_region.get((0x0018, 0x601C)).value
         if y0 < 340 or y0 > 350:
             print(f"Invalid Doppler region in {DICOM_FILE}")
             continue
@@ -196,9 +183,9 @@ for DICOM_FILE in DICOM_FILES:
             if args.output_path_folders:
                 OUTPUT_FILES = os.path.join(args.output_path_folders, os.path.basename(DICOM_FILE).replace(".dcm", ".jpg"))
                 plt.figure(figsize=(4, 4))
-                plt.scatter(point_x1, point_y1 + y0, color='red', s=20)
-                plt.scatter(point_x2, point_y2 + y0, color='red', s=20)
-                cv2.line(input_image, (point_x1, point_y1 + y0), (point_x2, point_y2 + y0), (255, 0, 0), 2)
+                plt.scatter(point_x1, point_y1 + y0, color='red', s=10)
+                plt.scatter(point_x2, point_y2 + y0, color='red', s=10)
+                cv2.line(input_image, (point_x1, point_y1 + y0), (point_x2, point_y2 + y0), (255, 0, 0), 1)
             
                 plt.imshow(input_image, cmap='gray')
                 plt.savefig(OUTPUT_FILES)
@@ -229,7 +216,7 @@ for DICOM_FILE in DICOM_FILES:
         
 metadata = pd.DataFrame(results)
 if args.output_path_folders:
-    metadata.to_csv(os.path.join(args.output_path_folders, "metadata.csv"), index=False)
+    metadata.to_csv(os.path.join(args.output_path_folders, "metadata_tapse.csv"), index=False)
     
 
 print(metadata.head())

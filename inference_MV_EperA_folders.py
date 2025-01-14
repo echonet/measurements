@@ -24,13 +24,10 @@ args = parser.parse_args()
 SEGMENTATION_THRESHOLD = 0.0
 DO_SIGMOID = True
 
-ULTRASOUND_REGIONS_TAG = (0x0018, 0x6011)
 REGION_X0_SUBTAG = (0x0018, 0x6018)  # left
 REGION_Y0_SUBTAG = (0x0018, 0x601A)  # top
 REGION_X1_SUBTAG = (0x0018, 0x601C)  # right
 REGION_Y1_SUBTAG = (0x0018, 0x601E)  # bottom
-STUDY_DESCRIPTION_TAG = (0x0008, 0x1030)
-SERIES_DESCRIPTION_TAG = (0x0008, 0x103E)
 PHOTOMETRIC_INTERPRETATION_TAG = (0x0028, 0x0004)
 REGION_PHYSICAL_DELTA_Y_SUBTAG = (0x0018, 0x602E)
 ULTRASOUND_COLOR_DATA_PRESENT_TAG = (0x0028, 0x0014)
@@ -118,7 +115,6 @@ def forward_pass(inputs):
         ValueError("Error: The distance between two points is too far. Please select the good quality Doppler data.")
             
     return point_x1, point_y1, point_x2, point_y2
-
 
 print("Note: This script is for MV Peak E or E/A inference. Input DICOM height and width are 768/1024 respectively.")
 
@@ -234,7 +230,7 @@ for DICOM_FILE in DICOM_FILES:
 
 metadata = pd.DataFrame(results)
 if args.output_path_folders:
-    metadata.to_csv(os.path.join(OUTPUT_FOLDERS, "metadata.csv"), index=False)
+    metadata.to_csv(os.path.join(OUTPUT_FOLDERS, "metadata_mvpeak.csv"), index=False)
     
 
 print(metadata.head())

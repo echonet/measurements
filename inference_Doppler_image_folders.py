@@ -31,15 +31,11 @@ args = parser.parse_args()
 #Configuration
 SEGMENTATION_THRESHOLD = 0.0
 DO_SIGMOID = True
-N_POINTS = 1
 
-ULTRASOUND_REGIONS_TAG = (0x0018, 0x6011)
 REGION_X0_SUBTAG = (0x0018, 0x6018)  # left
 REGION_Y0_SUBTAG = (0x0018, 0x601A)  # top
 REGION_X1_SUBTAG = (0x0018, 0x601C)  # right
 REGION_Y1_SUBTAG = (0x0018, 0x601E)  # bottom
-STUDY_DESCRIPTION_TAG = (0x0008, 0x1030)
-SERIES_DESCRIPTION_TAG = (0x0008, 0x103E)
 PHOTOMETRIC_INTERPRETATION_TAG = (0x0028, 0x0004)
 REGION_PHYSICAL_DELTA_Y_SUBTAG = (0x0018, 0x602E)
 ULTRASOUND_COLOR_DATA_PRESENT_TAG = (0x0028, 0x0014)
@@ -171,10 +167,15 @@ for DICOM_FILE in DICOM_FILES:
 metadata = pd.DataFrame(results)
 
 if args.output_path_folders:
-    metadata.to_csv(os.path.join(OUTPUT_FOLDERS, "metadata.csv"), index=False)
+    metadata.to_csv(os.path.join(OUTPUT_FOLDERS, f"metadata_{args.model_weights}.csv"), index=False)
     
 
 print(metadata.head())
 
 #SAMPLE SCRIPT
 #python inference_Doppler_image_folders.py  --model_weights avvmax  --folders ./SAMPLE_DICOM/AVV_FOLDERS  --output_path_folders ./OUTPUT/AVV
+#python inference_Doppler_image_folders.py  --model_weights trvmax  --folders ./SAMPLE_DICOM/TRV_FOLDERS  --output_path_folders ./OUTPUT/TRV
+#python inference_Doppler_image_folders.py  --model_weights mrvmax  --folders ./SAMPLE_DICOM/MRV_FOLDERS  --output_path_folders ./OUTPUT/MRV
+#python inference_Doppler_image_folders.py  --model_weights lvotvmax  --folders ./SAMPLE_DICOM/LVOT_FOLDERS  --output_path_folders ./OUTPUT/LVOT
+#python inference_Doppler_image_folders.py  --model_weights latevel  --folders ./SAMPLE_DICOM/LATEVEL_FOLDERS  --output_path_folders ./OUTPUT/LATEVEL
+

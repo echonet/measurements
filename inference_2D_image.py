@@ -7,6 +7,7 @@ import numpy as np
 from argparse import ArgumentParser
 from utils import segmentation_to_coordinates, process_video_with_diameter, get_coordinates_from_dicom
 import pydicom
+from pydicom.pixel_data_handlers.util import  convert_color_space
 
 """
 This file is for 2D frame-to-frame inference.
@@ -32,7 +33,6 @@ args = parser.parse_args()
 
 SEGMENTATION_THRESHOLD = 0.0
 DO_SIGMOID = True
-N_POINTS = 2
 
 #Dicom TAG
 REGION_PHYSICAL_DELTA_X_SUBTAG = (0x0018, 0x602C)
@@ -91,7 +91,7 @@ if input_type == "avi":
 #Version DICOM, LOAD VIDEO (Dicom).
 elif input_type == "dcm":
     ds = pydicom.dcmread(VIDEO_FILE)
-    input_dicom = ds.pixel_array #Frames shape (Frame, Height, Width, Channel)
+    input_dicom = ds.pixel_array #Frames shape (Frame, Height, Width, Channel)    
     height, width = input_dicom.shape[1], input_dicom.shape[2]
     
     doppler_region = get_coordinates_from_dicom(ds)[0]
@@ -108,10 +108,10 @@ elif input_type == "dcm":
 
     for frame in input_dicom:
         if ds.PhotometricInterpretation == "YBR_FULL_422":
-            frame =cv2.cvtColor(frame, cv2.COLOR_YUV2RGB)
+            frame = convert_color_space(arr=frame, current="YBR_FULL_422", desired="RGB")
+            # frame =cv2.cvtColor(frame, cv2.COLOR_YUV2RGB)
         resized_frame = cv2.resize(frame, (640, 480)) 
         frames.append(resized_frame)
-
 
 input_tensor = torch.tensor(frames)
 input_tensor = input_tensor.float() / 255.0
@@ -120,7 +120,7 @@ input_tensor = input_tensor.permute(0, 3, 1, 2)  # (F, C, H, W)
 
 #In predictions, each frame-level prediction will be saved.
 predictions = []
-for i in range(input_tensor.shape[0]):
+for i in range(input_tensor.shape[0]): #[0] means number of frames.
     batch = {"inputs": input_tensor[i].unsqueeze(0)} # torch.Size([1, 3, 480, 640])
     with torch.no_grad(): 
         model_output = forward_pass(batch["inputs"])
