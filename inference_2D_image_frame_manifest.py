@@ -30,6 +30,7 @@ parser.add_argument("--model_weights", type=str, required = True, choices=[
             "ivc",
         ])
 parser.add_argument("--folders", type=str, required = True, help= "Path to the video file folders (both AVI and DICOM)")
+parser.add_argument("--manifest_with_frame", type=str, required = True)
 parser.add_argument("--output_path_folders", type=str, help= "Output folders Defalut AVI and metadata")
 args = parser.parse_args()
 
@@ -42,7 +43,6 @@ REGION_PHYSICAL_DELTA_X_SUBTAG = (0x0018, 0x602C)
 REGION_PHYSICAL_DELTA_Y_SUBTAG = (0x0018, 0x602E)
 PHOTOMETRIC_INTERPRETATION_TAG = (0x0028, 0x0004)
 ULTRASOUND_COLOR_DATA_PRESENT_TAG = (0x0028, 0x0014)
-
 
 def forward_pass(inputs):
     logits = backbone(inputs)["out"] # torch.Size([1, 2, 480, 640])
@@ -62,30 +62,6 @@ def forward_pass(inputs):
 print("Please ensure that all file extensions in the folder are unified to either .dcm or .avi. Do not combine.")
 print("Note: This script is for 2D frame-to-frame inference.\nOur model used the video with height of 480 and width of 640, respectively.")
 
-
-def check_extensions_uniformity(folder_path, allowed_extensions = ['.dcm', '.avi']):
-    """
-    Checks if all files in the folder have extensions that are uniformly one of the allowed extensions.
-    """
-    extensions_found = set()
-    for _, _, files in os.walk(folder_path):
-        for file in files:
-            _, ext = os.path.splitext(file)
-            if ext.lower() in allowed_extensions:
-                extensions_found.add(ext.lower())
-            else:
-                print(f"Invalid file extension: {file}")
-                return False
-    if len(extensions_found) == 1:
-        print(f"All files have the same valid extension")
-        return True
-    else:
-        print("Files have mixed extensions or invalid extensions:", extensions_found)
-        return False
-
-check_extensions_uniformity(folder_path = args.folders, allowed_extensions = ['.dcm', '.avi'])
-
-
 # MODEL LOADING
 device = "cuda:0" #cpu / cuda
 weights_path = f"./weights/2D_models/{args.model_weights}_weights.ckpt"
@@ -96,18 +72,17 @@ print(backbone.load_state_dict(weights)) #says <All keys matched successfully>
 backbone = backbone.to(device)
 backbone.eval()
 
-
 if args.output_path_folders:
     OUTPUT_FOLDERS = args.output_path_folders
     if not os.path.exists(OUTPUT_FOLDERS): 
         os.makedirs(OUTPUT_FOLDERS)
 
-
 #Saved metadata and results
 results_all_files =[]
 
 #LOAD DICOM IMAGE with DOPPLER REGION
-VIDEO_FILES = [os.path.join(args.folders, f) for f in os.listdir(args.folders) if f.endswith(".dcm") or f.endswith(".avi")]
+manifest_with_frame = pd.read_csv(args.manifest_with_frame)
+VIDEO_FILES = manifest_with_frame["video_path"].unique()
 
 #using tqdm
 for VIDEO_FILE in tqdm(VIDEO_FILES):
@@ -127,7 +102,6 @@ for VIDEO_FILE in tqdm(VIDEO_FILES):
             
             PhotometricInterpretation = None
             ultrasound_color_data_present = None
-            diameters = None
 
         #Version DICOM, LOAD VIDEO (Dicom).
         elif VIDEO_FILE.endswith(".dcm"):
@@ -171,66 +145,56 @@ for VIDEO_FILE in tqdm(VIDEO_FILES):
         input_tensor = input_tensor.to(device)
         input_tensor = input_tensor.permute(0, 3, 1, 2)  # (F, C, H, W)
 
+        frame_number = manifest_with_frame[manifest_with_frame["video_path"] == VIDEO_FILE]["frame_number"].values[0]
         #In predictions, each frame-level prediction will be saved.
-        predictions = []
-        for i in range(input_tensor.shape[0]): #[0] means number of frames.
-            batch = {"inputs": input_tensor[i].unsqueeze(0)} # torch.Size([1, 3, 480, 640])
-            with torch.no_grad(): 
-                model_output = forward_pass(batch["inputs"])
-            predictions.append(model_output)
-        predictions = torch.cat(predictions, dim=0)
-        predictions = predictions.cpu().numpy()
 
-        #Make Output Video
-        output_video_path = os.path.join(args.output_path_folders, os.path.basename(VIDEO_FILE).replace(".dcm", "_generated.avi"))
-        out_avi = cv2.VideoWriter(
-                    output_video_path,
-                    cv2.VideoWriter_fourcc(*"XVID"),
-                    30, #FPS defult
-                    (batch["inputs"].shape[-1], batch["inputs"].shape[-2]),  # Width, Height
-                )
+        batch = {"inputs": input_tensor[frame_number].unsqueeze(0)} # torch.Size([1, 3, 480, 640])
+        with torch.no_grad(): 
+            model_output = forward_pass(batch["inputs"])
+        prediction = model_output.cpu().numpy()
+      
+        frame = input_tensor[frame_number]
+        frame = frame.permute(1, 2, 0).cpu().numpy()
+        frame = np.clip(frame, 0, 1)
+        frame = (frame * 255).astype(np.uint8)
+            
+        #Plot points (circle)
+        color = (235, 206, 135)
+        point_0, point_1 = prediction[0], prediction[1]
+        cv2.circle(frame, (int(point_0), int(point_1)), 5, color, -1)
+            
+        x1, y1, x2, y2 = prediction[0][0], prediction[0][1], prediction[1][0], prediction[1][1]
+        cv2.line(frame, 
+                (int(x1), int(y1)),
+                (int(x2), int(y2)),
+                color, 
+                2)
         
-        for i, (frame, prediction) in enumerate(zip(input_tensor, predictions)):
-            frame = frame.permute(1, 2, 0).cpu().numpy()
-            frame = np.clip(frame, 0, 1)
-            frame = (frame * 255).astype(np.uint8)
-            
-            #Plot points (circle)
-            for point, color in zip(prediction, [(235, 206, 135), (235, 206, 135)]):
-                point_0, point_1 = point[0], point[1]
-                cv2.circle(frame, (int(point_0), int(point_1)), 5, color, -1)
-            
-            x1, y1, x2, y2 = prediction[0][0], prediction[0][1], prediction[1][0], prediction[1][1]
-            #Plot line
-            cv2.line(frame, 
-                    (int(x1), int(y1)),
-                    (int(x2), int(y2)),
-                    (235, 206, 135), 
-                    2)
-            delta_x = x2 - x1
-            delta_y = y2 - y1
-            if conversion_factor_X is not None and conversion_factor_Y is not None:
-                diameters = np.sqrt((delta_x * conversion_factor_X)**2 + (delta_y * conversion_factor_Y)**2)
+        #save frame with predicted points to the output folder
+        if args.output_path_folders:
+            OUTPUT_FILES = os.path.join(OUTPUT_FOLDERS, os.path.basename(VIDEO_FILE).replace(".dcm", ".jpg"))
+            cv2.imwrite(OUTPUT_FILES, frame)
+        
+        delta_x = x2 - x1
+        delta_y = y2 - y1
+        if conversion_factor_X is not None and conversion_factor_Y is not None:
+            diameters = np.sqrt((delta_x * conversion_factor_X)**2 + (delta_y * conversion_factor_Y)**2)
     
-            results_one_file.append({
-                "filename": VIDEO_FILE,
-                "frame_number":i,
-                "measurement_name": args.model_weights,
-                
-                #Metadatas
-                "PhotometricInterpretation": PhotometricInterpretation,
-                "ultrasound_color_data_present": ultrasound_color_data_present,
+        results_one_file.append({
+            "filename": VIDEO_FILE,
+            "frame_number":frame_number,
+            "measurement_name": args.model_weights,
             
-                "predicted_x1": x1,
-                "predicted_y1": y1,
-                "predicted_x2": x2,
-                "predicted_y2": y2,
-                "predicted_diameter": diameters
-                }) 
-            
-            out_avi.write(frame)
-            
-        out_avi.release()
+            #Metadatas
+            "PhotometricInterpretation": PhotometricInterpretation,
+            "ultrasound_color_data_present": ultrasound_color_data_present,
+        
+            "predicted_x1": x1,
+            "predicted_y1": y1,
+            "predicted_x2": x2,
+            "predicted_y2": y2,
+            "predicted_diameter": diameters
+            }) 
 
         #if you want video with predicted diameter plot, please refere process_video_with_diameter function.
 

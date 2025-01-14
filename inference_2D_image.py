@@ -91,7 +91,7 @@ if input_type == "avi":
 #Version DICOM, LOAD VIDEO (Dicom).
 elif input_type == "dcm":
     ds = pydicom.dcmread(VIDEO_FILE)
-    input_dicom = ds.pixel_array #Frames shape (Frame, Height, Width, Channel)    
+    input_dicom = ds.pixel_array #Frames shape (Frame, Height, Width, Channel)
     height, width = input_dicom.shape[1], input_dicom.shape[2]
     
     doppler_region = get_coordinates_from_dicom(ds)[0]
@@ -229,5 +229,5 @@ if input_type == "dcm":
 #--file_path "./SAMPLE_DICOM/IVC_SAMPLE_0.dcm"
 #--output_path "./OUTPUT/AVI/IVC_SAMPLE_GENERATED.avi"
 
-#S  03_/generate_overlay.py
-#S  03_/inference_video_burntin.py
+#Sagan  03_/generate_overlay.py
+#Sagan  03_/inference_video_burntin.py

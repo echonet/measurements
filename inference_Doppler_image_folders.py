@@ -24,7 +24,7 @@ parser.add_argument("--model_weights", type=str, required = True, choices=[
             "latevel", #Latral e'  
             "medevel" #Septal e'
         ])
-parser.add_argument("--folders", type=str, required = True, help= "Path to the video file folders (both AVI and DICOM)")
+parser.add_argument("--folders", type=str, required = True, help= "Path to the Dicom file folders")
 parser.add_argument("--output_path_folders", type=str, help= "Output folders Defalut jpg")
 args = parser.parse_args()
 
