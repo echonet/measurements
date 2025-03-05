@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from argparse import ArgumentParser
 import pydicom
 from pydicom.pixel_data_handlers.util import  convert_color_space
-from utils import get_coordinates_from_dicom, find_horizontal_line, calculate_weighted_centroids_with_meshgrid
+from utils import get_coordinates_from_dicom, find_horizontal_line, calculate_weighted_centroids_with_meshgrid, ybr_to_rgb
 from torchvision.models.segmentation import deeplabv3_resnet50
 import os
 
@@ -74,7 +74,7 @@ def forward_pass(inputs):
     try:
         min_distance_coord  = min(distance_centroid_btw_maxlogits, key=distance_centroid_btw_maxlogits.get)
     except:
-        ValueError("Error: min_distance_coord is not found, due to low prediction score. Select Good quality MVPeak Doppler data")
+        raise ValueError("Error: min_distance_coord is not found, due to low prediction score. Select Good quality MVPeak Doppler data")
     
     #3. Calculate distance between min_distance_coord and other centroids
     distance_btw_centroids = {}
@@ -102,7 +102,7 @@ def forward_pass(inputs):
         min_distance_paired_coord = min(non_zero_distance_btw_centroids, key=non_zero_distance_btw_centroids.get)
         pair_coords = [min_distance_coord, min_distance_paired_coord] 
     except:
-        ValueError("Error: min_distance_coord is not found, due to low prediction score. Select Good quality MVPeak Doppler data")
+        raise ValueError("Error: min_distance_coord is not found, due to low prediction score. Select Good quality MVPeak Doppler data")
     
     point_x1, point_y1= pair_coords[0][0], pair_coords[0][1] 
     point_x2, point_y2 = pair_coords[1][0], pair_coords[1][1]
@@ -112,7 +112,7 @@ def forward_pass(inputs):
 
     distance_x1_x2 = abs(point_x1 - point_x2)
     if distance_x1_x2 > 300:
-        ValueError("Error: The distance between two points is too far. Please select the good quality Doppler data.")
+        raise ValueError("Error: The distance between two points is too far. Please select the good quality Doppler data.")
             
     return point_x1, point_y1, point_x2, point_y2
 
@@ -143,6 +143,11 @@ for DICOM_FILE in DICOM_FILES:
     try:
         ds = pydicom.dcmread(DICOM_FILE)
         input_image = ds.pixel_array
+        
+        if len(input_image.shape) == 2:
+            height, width = input_image.shape
+        else:
+            height, width, _ = input_image.shape
         
         if PHOTOMETRIC_INTERPRETATION_TAG in ds:
             PhotometricInterpretation = ds[PHOTOMETRIC_INTERPRETATION_TAG].value
@@ -180,7 +185,7 @@ for DICOM_FILE in DICOM_FILES:
             raise ValueError("Error: Doppler Region is not located in the correct position. Please check the DICOM file. Our developed model is trained with y0 Doppler Region located in 342-348.")
 
         #horizontal line means the line where the Doppler signal starts
-        horizontal_y = find_horizontal_line(ds.pixel_array[y0:y1, :])
+        horizontal_y = find_horizontal_line(input_image[y0:y1, :])
         #Basically, the region where the Doppler signal starts is 342-345. We truncate the image from 342 to 768. Make 426*1024.
         input_dicom_doppler_area = input_image[342 :,:, :] 
 
@@ -205,7 +210,7 @@ for DICOM_FILE in DICOM_FILES:
                 plt.savefig(OUTPUT_FILES)
         
         results.append({
-            "filename": os.path.basename(DICOM_FILE),
+            "filename": DICOM_FILE,
             "measurement_name": 'MV_Peak',
             
             #Metadatas
@@ -224,6 +229,8 @@ for DICOM_FILE in DICOM_FILES:
             "Inference_E_Vel": Inference_E_Vel,
             "Inference_A_Vel": Inference_A_Vel,
             "Inference_EperA": Inference_EperA,
+            "height": height,
+            "width": width
         })
     except Exception as e:
         print(f"Error: {DICOM_FILE}, {e}")

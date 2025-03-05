@@ -5,13 +5,17 @@ from torchvision.models.segmentation import deeplabv3_resnet50
 import cv2
 import numpy as np
 from argparse import ArgumentParser
-from utils import segmentation_to_coordinates, process_video_with_diameter, get_coordinates_from_dicom
+from utils import segmentation_to_coordinates, process_video_with_diameter, get_coordinates_from_dicom, ybr_to_rgb
 import pydicom
 from pydicom.pixel_data_handlers.util import  convert_color_space
 
 """
 This file is for 2D frame-to-frame inference.
 The input is a video file (AVI or DICOM) and the output is a video file (AVI) with the predicted frame-to-frame annotation.
+
+Disclaimer: Please include the appropriate view corresponding to the measurement item. 
+(For example, LVID is typically measured in the PLAX view and not in A4C or PSAX. 
+Additionally, avoid using an excessively zoomed-out PLAX view; instead, include a standard one. The same applies to other measurement items.)
 """
 
 #Configuration
@@ -62,6 +66,7 @@ VIDEO_FILE = args.file_path
 if VIDEO_FILE.endswith(".avi"): input_type = "avi"
 elif VIDEO_FILE.endswith(".dcm"): input_type = "dcm"
 
+input_type = "dcm" #For testing
 if input_type is None:
     raise ValueError("File path must be either .avi or .dcm")
 if not args.output_path.endswith(".avi"):
@@ -100,15 +105,17 @@ elif input_type == "dcm":
     if REGION_PHYSICAL_DELTA_Y_SUBTAG in doppler_region:
         conversion_factor_Y = abs(doppler_region[REGION_PHYSICAL_DELTA_Y_SUBTAG].value)
     
-    ratio_hight = height / 480 
+    ratio_height = height / 480 
     ratio_width = width / 640
     
-    if ratio_hight != ratio_width:
-        ValueError("Height and Width ratio should be same, Our model used 3:4 aspect videos.")
+    print("ratio_height", ratio_height, "ratio_width", ratio_width)
+    if ratio_height != ratio_width:
+        raise ValueError("Height and Width ratio should be same in our training dataset, Our model used 3:4 aspect videos.")
 
     for frame in input_dicom:
         if ds.PhotometricInterpretation == "YBR_FULL_422":
-            frame = convert_color_space(arr=frame, current="YBR_FULL_422", desired="RGB")
+            frame = ybr_to_rgb(frame)
+            # frame = convert_color_space(arr=frame, current="YBR_FULL_422", desired="RGB")
             # frame =cv2.cvtColor(frame, cv2.COLOR_YUV2RGB)
         resized_frame = cv2.resize(frame, (640, 480)) 
         frames.append(resized_frame)
@@ -138,7 +145,7 @@ out_avi = cv2.VideoWriter(
         )
 
 if not out_avi.isOpened():
-    ValueError("Error: VideoWriter failed to open.")
+    raise ValueError("Error: VideoWriter failed to open.")
 
 frame_number, pred_x1s, pred_y1s, pred_x2s, pred_y2s =[], [], [], [], []
   
@@ -148,15 +155,15 @@ for i, (frame, prediction) in enumerate(zip(input_tensor, predictions)):
     frame = (frame * 255).astype(np.uint8)
     
     #Plot points (circle)
-    for point, color in zip(prediction, [(235, 206, 135), (235, 206, 135)]):
+    for point, color in zip(prediction, [(135, 206, 235), (135, 206, 235)]):
         point_0, point_1 = point[0], point[1]
-        cv2.circle(frame, (int(point_0), int(point_1)), 5, color, -1)
+        cv2.circle(frame, (int(point_0), int(point_1)), 3, color, -1)
     
     #Plot line
     cv2.line(frame, 
              (int(prediction[0][0]), int(prediction[0][1])),
              (int(prediction[1][0]), int(prediction[1][1])),
-             (235, 206, 135), 
+             (135, 206, 235), 
              2)
     
     pred_x1s.append(prediction[0][0])
@@ -178,6 +185,8 @@ df = pd.DataFrame({
     "pred_y2": pred_y2s,
 })
 
+df.to_csv(output_video_path.replace(".avi", ".csv"), index=False)
+
 if input_type == "avi":
     print("Completed. Distance between two points is not calculated from .avi input.")
 
@@ -186,7 +195,8 @@ if input_type == "dcm":
                                 output_path = output_video_path.replace(".avi", "_distance.avi"),
                                 conversion_factor_X = conversion_factor_X,
                                 conversion_factor_Y = conversion_factor_Y,
-                                df = df)
+                                df = df,
+                                ratio = ratio_height)
     print("Distance between two points is calculated from .dcm input.")
     print(f"Completed.Please check {output_video_path.replace('.avi', '_distance.avi')}")
 
@@ -226,8 +236,5 @@ if input_type == "dcm":
 #--output_path "./OUTPUT/AVI/PA_SAMPLE_GENERATED.avi"
 
 #python inference_2D_image.py --model_weights "ivc"
-#--file_path "./SAMPLE_DICOM/IVC_SAMPLE_0.dcm"
-#--output_path "./OUTPUT/AVI/IVC_SAMPLE_GENERATED.avi"
-
-#Sagan  03_/generate_overlay.py
-#Sagan  03_/inference_video_burntin.py
+#--file_path "./SAMPLE_DICOM/IVC_SAMPLE_0.dcm" /workspace/data/athena/slow/echo_research_t_inbox/STUDY_1.2.840.114350.2.202.2.798268.2.535075241.1/USm.1.2.840.113663.1500.1.422834173.3.74.20230220.201153.410
+#--output_path "./OUTPUT/AVI/IVC_SAMPLE_GENERATED.avi" 

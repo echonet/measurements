@@ -14,6 +14,10 @@ from tqdm import tqdm
 """
 This script is for 2D frame-to-frame inference  with a directory which containes many Doppler Dicoms . 
 The input is video files (AVI or DICOM) and the output is video files (AVI) with the predicted frame-to-frame annotation and metadata. 
+
+Disclaimer: Please include the appropriate view corresponding to the measurement item. 
+(For example, LVID is typically measured in the PLAX view and not in A4C or PSAX. 
+Additionally, avoid using an excessively zoomed-out PLAX view; instead, include a standard one. The same applies to other measurement items.)
 """
 
 #Configuration
@@ -85,7 +89,6 @@ def check_extensions_uniformity(folder_path, allowed_extensions = ['.dcm', '.avi
 
 check_extensions_uniformity(folder_path = args.folders, allowed_extensions = ['.dcm', '.avi'])
 
-
 # MODEL LOADING
 device = "cuda:0" #cpu / cuda
 weights_path = f"./weights/2D_models/{args.model_weights}_weights.ckpt"
@@ -152,10 +155,10 @@ for VIDEO_FILE in tqdm(VIDEO_FILES):
             if REGION_PHYSICAL_DELTA_Y_SUBTAG in doppler_region:
                 conversion_factor_Y = abs(doppler_region[REGION_PHYSICAL_DELTA_Y_SUBTAG].value)
             
-            ratio_hight = height / 480 
+            ratio_height = height / 480 
             ratio_width = width / 640
             
-            if ratio_hight != ratio_width:
+            if ratio_height != ratio_width:
                 ValueError("Height and Width ratio should be same, Our model used 3:4 aspect videos.")
 
             for frame in input_dicom:
@@ -182,7 +185,8 @@ for VIDEO_FILE in tqdm(VIDEO_FILES):
         predictions = predictions.cpu().numpy()
 
         #Make Output Video
-        output_video_path = os.path.join(args.output_path_folders, os.path.basename(VIDEO_FILE).replace(".dcm", "_generated.avi"))
+        output_video_path = os.path.join(OUTPUT_FOLDERS, os.path.basename(VIDEO_FILE) + "_generated.avi")
+        # output_video_path = os.path.join(OUTPUT_FOLDERS, os.path.basename(VIDEO_FILE).replace(".dcm", "_generated.avi"))
         out_avi = cv2.VideoWriter(
                     output_video_path,
                     cv2.VideoWriter_fourcc(*"XVID"),
@@ -207,8 +211,9 @@ for VIDEO_FILE in tqdm(VIDEO_FILES):
                     (int(x2), int(y2)),
                     (235, 206, 135), 
                     2)
-            delta_x = x2 - x1
-            delta_y = y2 - y1
+            delta_x = abs(x2 - x1) * ratio_height
+            delta_y = abs(y2 - y1) * ratio_height
+            
             if conversion_factor_X is not None and conversion_factor_Y is not None:
                 diameters = np.sqrt((delta_x * conversion_factor_X)**2 + (delta_y * conversion_factor_Y)**2)
     
@@ -221,17 +226,26 @@ for VIDEO_FILE in tqdm(VIDEO_FILES):
                 "PhotometricInterpretation": PhotometricInterpretation,
                 "ultrasound_color_data_present": ultrasound_color_data_present,
             
-                "predicted_x1": x1,
-                "predicted_y1": y1,
-                "predicted_x2": x2,
-                "predicted_y2": y2,
+                "pred_x1": x1,
+                "pred_y1": y1,
+                "pred_x2": x2,
+                "pred_y2": y2,
                 "predicted_diameter": diameters
                 }) 
             
             out_avi.write(frame)
             
+            #make dataframe from results_one_file
+            df_results_one_file = pd.DataFrame(results_one_file)
+            
         out_avi.release()
 
+        process_video_with_diameter(video_path = output_video_path, 
+                                output_path = output_video_path.replace(".avi", "_distance.avi"),
+                                conversion_factor_X = conversion_factor_X,
+                                conversion_factor_Y = conversion_factor_Y,
+                                df = df_results_one_file,
+                                ratio = ratio_height)
         #if you want video with predicted diameter plot, please refere process_video_with_diameter function.
 
     except Exception as e:
@@ -256,3 +270,6 @@ print("Completed. Please check the output folder for the generated videos and me
 #--folders "./SAMPLE_DICOM/IVS_FOLDERS" 
 #--output_path_folders "./OUTPUT/IVS"
 
+#python inference_2D_image_folders.py --model_weights "pa" 
+#--folders "/workspace/yuki/measurements_internal/end_to_end_inference/mpa_videos" 
+#--output_path_folders "./OUTPUT/PA_SFD"

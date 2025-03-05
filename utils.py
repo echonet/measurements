@@ -97,6 +97,7 @@ def get_coordinates_from_dicom(
         return regions_with_coords[0]
 
     else:
+        print("No ultrasound regions found in DICOM file.")
         return None, None
     
 def find_horizontal_line(
@@ -133,6 +134,10 @@ def find_horizontal_line(
                 return y
     return None
 
+#Convert YBR_FULL_422 to RGB
+lut=np.load("./ybr_to_rgb_lut.npy")
+def ybr_to_rgb(x):
+    return lut[x[..., 0], x[..., 1], x[..., 2]]
 
 def calculate_weighted_centroids_with_meshgrid(logits):
     """
@@ -186,7 +191,7 @@ def process_video_with_diameter(video_path,
                                 df, 
                                 conversion_factor_X,
                                 conversion_factor_Y,
-                                scale=1.0):
+                                ratio):
     # Load video
     cap = cv2.VideoCapture(video_path)
     frames = []
@@ -204,8 +209,8 @@ def process_video_with_diameter(video_path,
     x2 = df["pred_x2"].values
     y2 = df["pred_y2"].values
 
-    delta_x = x2 - x1
-    delta_y = y2 - y1
+    delta_x = abs(x2 - x1) *ratio 
+    delta_y = abs(y2 - y1) *ratio
     diameters = np.sqrt((delta_x * conversion_factor_X)**2 + (delta_y * conversion_factor_Y)**2)
 
     # Smooth diameters
@@ -244,4 +249,9 @@ def process_video_with_diameter(video_path,
         out.write(cv2.cvtColor(combined_frame, cv2.COLOR_RGB2BGR))
 
     out.release()
-    print(f"Output saved to {output_path}")
+    
+    df["diameter"] = diameters
+    df["smooth_diameter"] = smooth_diameters
+    df.to_csv(output_path.replace(".avi", ".csv"), index=False)
+
+    print(f"Output Distance avi saved to {output_path}")

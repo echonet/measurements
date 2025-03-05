@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from argparse import ArgumentParser
 import pydicom
 from pydicom.pixel_data_handlers.util import  convert_color_space
-from utils import get_coordinates_from_dicom, find_horizontal_line, calculate_weighted_centroids_with_meshgrid
+from utils import get_coordinates_from_dicom, find_horizontal_line, calculate_weighted_centroids_with_meshgrid, ybr_to_rgb
 from torchvision.models.segmentation import deeplabv3_resnet50
 
 """
@@ -77,7 +77,7 @@ def forward_pass(inputs):
     try:
         min_distance_coord  = min(distance_centroid_btw_maxlogits, key=distance_centroid_btw_maxlogits.get)
     except:
-        ValueError("Error: min_distance_coord is not found, due to low prediction score. Select Good quality TAPSE data")
+        raise ValueError("Error: min_distance_coord is not found, due to low prediction score. Select Good quality TAPSE data")
     
     #3. Calculate distance between min_distance_coord and other centroids
     distance_btw_centroids = {}
@@ -105,7 +105,7 @@ def forward_pass(inputs):
         min_distance_paired_coord = min(non_zero_distance_btw_centroids, key=non_zero_distance_btw_centroids.get)
         pair_coords = [min_distance_coord, min_distance_paired_coord] 
     except:
-        ValueError("Error: min_distance_coord is not found, due to low prediction score. Select Good quality TAPSE data")
+        raise ValueError("Error: min_distance_coord is not found, due to low prediction score. Select Good quality TAPSE data")
     
     point_x1, point_y1= pair_coords[0][0], pair_coords[0][1] 
     point_x2, point_y2 = pair_coords[1][0], pair_coords[1][1]
@@ -141,7 +141,7 @@ input_image = ds.pixel_array
 if ds.PhotometricInterpretation == 'MONOCHROME2':
     input_image = np.stack((input_image,) * 3, axis=-1)
 elif ds.PhotometricInterpretation == "YBR_FULL_422" and len(input_image.shape) == 3:
-    input_image = convert_color_space(arr=input_image, current="YBR_FULL_422", desired="RGB")
+    input_image = ybr_to_rgb(input_image)
     #Heuristic to mask EKG (green line) / select green > 200 and blue < 100 to Mask 0
     ecg_mask = np.logical_and(input_image[:, :, 1] > 200, input_image[:, :, 0] < 100)
     input_image[ecg_mask, :] = 0
@@ -150,7 +150,7 @@ elif ds.PhotometricInterpretation == "RGB":
     input_image[ecg_mask, :] = 0
     pass
 else:
-    ValueError("Unsupported Photometric Interpretation")
+    raise ValueError("Unsupported Photometric Interpretation")
     
 #"Need Specific DICOM Region TAG for Doppler. It is typically saved in the DICOM file."
 doppler_region = get_coordinates_from_dicom(ds)[0]
@@ -171,8 +171,6 @@ print("Doppler Region is located: X ranged from", x0, "to ", x1, ". Y ranged fro
 if y0 <340 or y0 > 350:
     raise ValueError("Error: Doppler Region is not located in the correct position. Please check the DICOM file. Our developed model is trained with y0 Doppler Region located in 342-348.")
 
-#horizontal line means the line where the Doppler signal starts
-horizontal_y = find_horizontal_line(ds.pixel_array[y0:y1, :])
 #Basically, the region where the Doppler signal starts is 342-345. We truncate the image from 342 to 768. Make 426*1024.
 input_dicom_doppler_area = ds.pixel_array[342 :,:, :] 
 doppler_area_tensor = torch.tensor(input_dicom_doppler_area)

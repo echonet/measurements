@@ -4,7 +4,7 @@ from torchvision.models.segmentation import deeplabv3_resnet50
 import cv2
 import numpy as np
 from argparse import ArgumentParser
-from utils import segmentation_to_coordinates, get_coordinates_from_dicom, find_horizontal_line
+from utils import segmentation_to_coordinates, get_coordinates_from_dicom, find_horizontal_line, ybr_to_rgb
 import pydicom
 from pydicom.pixel_data_handlers.util import  convert_color_space
 import matplotlib.pyplot as plt
@@ -13,6 +13,9 @@ import matplotlib.pyplot as plt
 This script is for Doppler Velocity inference. 
 The input is a DICOM file with a Doppler region. 
 The script will output the Predicted Annotation and Velocity (Like TRVMAX or AVVMAX).
+
+Please make sure your input model is for Doppler Velocity and not low-quality images.
+
 """
 
 parser = ArgumentParser()
@@ -108,8 +111,9 @@ if REGION_X1_SUBTAG in doppler_region:
 print("Doppler Region is located: X ranged from", x0, "to ", x1, ". Y ranged from ", y0, "to", y1)
 
 #horizontal line means the line where the Doppler signal starts
-horizontal_y = find_horizontal_line(ds.pixel_array[y0:y1, :])
-print("In Doppler image, horizontal Line is located at Y=", horizontal_y)
+horizontal_y = find_horizontal_line(input_image[y0:y1, :])
+print("In Doppler image, Doppler baseline is located at Y=", horizontal_y)
+print("If ECG is flat, the Doppler baseline is located different position.")
 #Basically, the region where the Doppler signal starts is 342-345. We truncate the image from 342 to 768. Make 426*1024.
 input_dicom_doppler_area = input_image[342 :,:, :] 
 doppler_area_tensor = torch.tensor(input_dicom_doppler_area)

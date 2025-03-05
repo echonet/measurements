@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from argparse import ArgumentParser
 import pydicom
 from pydicom.pixel_data_handlers.util import  convert_color_space
-from utils import get_coordinates_from_dicom, find_horizontal_line, calculate_weighted_centroids_with_meshgrid
+from utils import get_coordinates_from_dicom, find_horizontal_line, calculate_weighted_centroids_with_meshgrid, ybr_to_rgb
 from torchvision.models.segmentation import deeplabv3_resnet50
 import os
 
@@ -69,7 +69,7 @@ def forward_pass(inputs):
     try:
         min_distance_coord  = min(distance_centroid_btw_maxlogits, key=distance_centroid_btw_maxlogits.get)
     except:
-        ValueError("Error: min_distance_coord is not found, due to low prediction score. Select Good quality TAPSE data")
+        raise ValueError("Error: min_distance_coord is not found, due to low prediction score. Select Good quality TAPSE data")
     
     #3. Calculate distance between min_distance_coord and other centroids
     distance_btw_centroids = {}
@@ -97,7 +97,7 @@ def forward_pass(inputs):
         min_distance_paired_coord = min(non_zero_distance_btw_centroids, key=non_zero_distance_btw_centroids.get)
         pair_coords = [min_distance_coord, min_distance_paired_coord] 
     except:
-        ValueError("Error: min_distance_coord is not found, due to low prediction score. Select Good quality TAPSE data")
+        raise ValueError("Error: min_distance_coord is not found, due to low prediction score. Select Good quality TAPSE data")
     
     point_x1, point_y1= pair_coords[0][0], pair_coords[0][1] 
     point_x2, point_y2 = pair_coords[1][0], pair_coords[1][1]

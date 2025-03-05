@@ -4,7 +4,7 @@ from torchvision.models.segmentation import deeplabv3_resnet50
 import cv2
 import numpy as np
 from argparse import ArgumentParser
-from utils import segmentation_to_coordinates, get_coordinates_from_dicom, find_horizontal_line
+from utils import segmentation_to_coordinates, get_coordinates_from_dicom, find_horizontal_line, ybr_to_rgb
 import pydicom
 from pydicom.pixel_data_handlers.util import  convert_color_space
 import matplotlib.pyplot as plt
@@ -77,6 +77,11 @@ for DICOM_FILE in DICOM_FILES:
         ds = pydicom.dcmread(DICOM_FILE)
         input_image = ds.pixel_array
         
+        if len(input_image.shape) == 2:
+            height, width = input_image.shape
+        else:
+            height, width, _ = input_image.shape
+        
         if PHOTOMETRIC_INTERPRETATION_TAG in ds:
             PhotometricInterpretation = ds[PHOTOMETRIC_INTERPRETATION_TAG].value
         else:
@@ -112,7 +117,7 @@ for DICOM_FILE in DICOM_FILES:
             continue
         
         #horizontal line means the line where the Doppler signal starts
-        horizontal_y = find_horizontal_line(ds.pixel_array[y0:y1, :])
+        horizontal_y = find_horizontal_line(input_image[y0:y1, :])
         #Basically, the region where the Doppler signal starts is 342-345. We truncate the image from 342 to 768. Make 426*1024.
         input_dicom_doppler_area = input_image[342 :,:, :] 
         doppler_area_tensor = torch.tensor(input_dicom_doppler_area)
@@ -158,7 +163,9 @@ for DICOM_FILE in DICOM_FILES:
             "horizontal_line": horizontal_y,
             "predicted_x": predicted_x,
             "predicted_y": predicted_y,
-            "peak_velocity": peak_velocity
+            "peak_velocity": peak_velocity,
+            "height": height,
+            "width": width
         })
         
     except Exception as e:
