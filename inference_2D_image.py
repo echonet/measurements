@@ -66,7 +66,6 @@ VIDEO_FILE = args.file_path
 if VIDEO_FILE.endswith(".avi"): input_type = "avi"
 elif VIDEO_FILE.endswith(".dcm"): input_type = "dcm"
 
-input_type = "dcm" #For testing
 if input_type is None:
     raise ValueError("File path must be either .avi or .dcm")
 if not args.output_path.endswith(".avi"):
