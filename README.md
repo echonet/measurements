@@ -56,6 +56,9 @@ cd your-repository-name
 ```
 
 **2. Install dependencies**:
+
+Note: we use python 3.9 or 3.10 for training/inference.
+
 ```sh
 pip install -r requirements.txt
 ```
