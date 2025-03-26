@@ -63,6 +63,16 @@ Note: we use python 3.9 or 3.10 for training/inference.
 pip install -r requirements.txt
 ```
 
+This repository uses Git Large File Storage (Git LFS) to manage large files (model weights). 
+A simple git clone will only download placeholder files (around 4KB each) instead of the actual ckpt large files.
+
+```sh
+(sudo) apt update
+(sudo) apt install git-lfs
+git lfs install
+git lfs pull
+```
+
 **3. Run inference**:  
 - **3-1 and 3-3. Linear Measurement** (like IVS, LAD, AORTA)  
 
