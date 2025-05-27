@@ -222,7 +222,6 @@ for VIDEO_FILE in tqdm(VIDEO_FILES):
                 "frame_number":i,
                 "measurement_name": args.model_weights,
                 
-                #Metadatas
                 "PhotometricInterpretation": PhotometricInterpretation,
                 "ultrasound_color_data_present": ultrasound_color_data_present,
             
@@ -230,7 +229,9 @@ for VIDEO_FILE in tqdm(VIDEO_FILES):
                 "pred_y1": y1,
                 "pred_x2": x2,
                 "pred_y2": y2,
+                "coordinates": f"{x1}:{x2}:{y1}:{y2}",
                 "predicted_diameter": diameters
+                #image_path   m_name  coordinates   type   video_path frame_number    mse  image_shape file_uid    mrn
                 }) 
             
             out_avi.write(frame)

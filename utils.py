@@ -2,14 +2,18 @@ import numpy as np
 import cv2
 import torch
 from typing import Tuple, Union, List
-import torch
-import numpy as np
 import math
 import pydicom
 import scipy.signal
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+
+from scipy.signal import savgol_filter
+
+import numpy as np
+from scipy.signal import find_peaks
+
 
 ULTRASOUND_REGIONS_TAG = (0x0018, 0x6011)
 REGION_X0_SUBTAG = (0x0018, 0x6018)  # left
@@ -135,7 +139,7 @@ def find_horizontal_line(
     return None
 
 #Convert YBR_FULL_422 to RGB
-lut=np.load("./ybr_to_rgb_lut.npy")
+lut=np.load("/workspace/yuki/measurements_internal/measurements/ybr_to_rgb_lut.npy")
 def ybr_to_rgb(x):
     return lut[x[..., 0], x[..., 1], x[..., 2]]
 
@@ -238,10 +242,15 @@ def process_video_with_diameter(video_path,
 
         canvas = FigureCanvas(fig)
         canvas.draw()
-        plot_image = np.frombuffer(canvas.tostring_rgb(), dtype='uint8')
-        plot_image = plot_image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+        try:    
+            plot_image = np.frombuffer(canvas.tostring_rgb(), dtype='uint8')
+            plot_image = plot_image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+        except Exception as e:
+            buf = canvas.buffer_rgba()
+            plot_image_rgba = np.asarray(buf)
+            plot_image = plot_image_rgba[:, :, :3] 
+            
         plt.close(fig)
-
         plot_image = cv2.resize(plot_image, (width, plot_height))
         # Stack video frame and plot vertically
         combined_frame = np.vstack((frame, plot_image))
@@ -255,3 +264,39 @@ def process_video_with_diameter(video_path,
     df.to_csv(output_path.replace(".avi", ".csv"), index=False)
 
     print(f"Output Distance avi saved to {output_path}")
+    
+def get_systole_diastole(diameter: np.ndarray, 
+                         smoothing: bool=False,
+                         kernel=[1, 2, 3, 2, 1], 
+                         distance: int=25) -> Tuple[np.ndarray]:
+    """Finds heart phase from a representative signal. Signal must be maximum at end diastole and
+    minimum at end systole.
+
+    Args:
+        diameter (np.ndarray): Signal representing heart phase. shape=(n,)
+        kernel (list, optional): Smoothing kernel used before finding peaks. Defaults to [1, 2, 3, 2, 1].
+        distance (int, optional): Minimum distance between peaks in find_peaks(). Defaults to 25.
+
+    Returns:
+        systole_i (np.ndarray): Indices of end systole. shape=(n_sys,)
+        diastole_i (np.ndarray): Indices of end diastole. shape=(n_dia,)
+    """
+
+    # Smooth input
+    if smoothing:
+        kernel = np.array(kernel)
+        kernel = kernel / kernel.sum()
+        diameter = np.convolve(diameter, kernel, mode='same')
+
+    # Find peaks
+    diastole_i, _ = find_peaks(diameter, distance=distance)
+    systole_i, _ = find_peaks(-diameter, distance=distance)
+
+    # Ignore first/last index if possible
+    if len(systole_i) != 0 and len(diastole_i) != 0:
+        start_minmax = np.concatenate([diastole_i, systole_i]).min()
+        end_minmax = np.concatenate([diastole_i, systole_i]).max()
+        diastole_i = np.delete(diastole_i, np.where((diastole_i == start_minmax) | (diastole_i == end_minmax)))
+        systole_i = np.delete(systole_i, np.where((systole_i == start_minmax) | (systole_i == end_minmax)))
+    
+    return systole_i, diastole_i

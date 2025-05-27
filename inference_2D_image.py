@@ -58,7 +58,7 @@ def forward_pass(inputs):
     )
     return predictions
 
-print("Note: This script is for 2D frame-to-frame inference.\nOur model used the video with height of 480 and width of 640, respectively.")
+print("Note: This script is for 2D frame-to-frame inference.")
 
 input_type = None
 VIDEO_FILE = args.file_path
@@ -107,10 +107,6 @@ elif input_type == "dcm":
     ratio_height = height / 480 
     ratio_width = width / 640
     
-    print("ratio_height", ratio_height, "ratio_width", ratio_width)
-    if ratio_height != ratio_width:
-        raise ValueError("Height and Width ratio should be same in our training dataset, Our model used 3:4 aspect videos.")
-
     for frame in input_dicom:
         if ds.PhotometricInterpretation == "YBR_FULL_422":
             frame = ybr_to_rgb(frame)
@@ -199,6 +195,16 @@ if input_type == "dcm":
     print("Distance between two points is calculated from .dcm input.")
     print(f"Completed.Please check {output_video_path.replace('.avi', '_distance.avi')}")
 
+phase_estimate = False
+if phase_estimate:
+    from utils import get_systole_diastole
+    process_video_with_diameter_path = output_video_path.replace(".avi", ".csv")
+    diameter_table = pd.read_csv(process_video_with_diameter_path)
+    diameter = diameter_table["smooth_diameter"].values
+    print(get_systole_diastole(diameter, 
+                     smoothing=False, 
+                     kernel=[1, 2, 3, 2, 1], 
+                     distance=25))
 
 #SAMPLE SCRIPT
 
@@ -235,5 +241,5 @@ if input_type == "dcm":
 #--output_path "./OUTPUT/AVI/PA_SAMPLE_GENERATED.avi"
 
 #python inference_2D_image.py --model_weights "ivc"
-#--file_path "./SAMPLE_DICOM/IVC_SAMPLE_0.dcm" /workspace/data/athena/slow/echo_research_t_inbox/STUDY_1.2.840.114350.2.202.2.798268.2.535075241.1/USm.1.2.840.113663.1500.1.422834173.3.74.20230220.201153.410
+#--file_path "./SAMPLE_DICOM/IVC_SAMPLE_0.dcm" 
 #--output_path "./OUTPUT/AVI/IVC_SAMPLE_GENERATED.avi" 
