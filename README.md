@@ -95,7 +95,11 @@ python inference_Doppler_image.py --model_weights "VARIABLE_LIKE_TRVMAX"  --file
 - `inference_XXXXX_folders.py` process a folder of DICOM files for inference. These outputs annotated images and saves predicted_measurement and metadatato a CSV file.
 For examples, `inference_Doppler_image.py` process one Dicom images, but `inference_Doppler_image_folders.py` processes multiple files and create csv files.
 
-<img src="https://github.com/echonet/measurements/blob/main/image/OutPut_Predicted_Images.png" alt="Sample Echo Frame" width="600"/>
+- **3-4. Phase Estimation**  
+
+using `get_systole_diastole` funstion in utils.py, you can estimate max diameter timeframe and minimun diameter timeframe
+
+<img src="https://github.com/echonet/measurements/blob/main/image/Overall.png" alt="Sample Echo Frame" width="600"/>
 
 
 ## Gradio Demo Sample
