@@ -4,7 +4,7 @@ from torchvision.models.segmentation import deeplabv3_resnet50
 import cv2
 import numpy as np
 from argparse import ArgumentParser
-from utils import segmentation_to_coordinates, get_coordinates_from_dicom, find_horizontal_line, ybr_to_rgb
+from utils import segmentation_to_coordinates, get_coordinates_from_dicom, ybr_to_rgb
 import pydicom
 from pydicom.pixel_data_handlers.util import  convert_color_space
 import matplotlib.pyplot as plt
@@ -46,8 +46,7 @@ STUDY_DESCRIPTION_TAG = (0x0008, 0x1030)
 SERIES_DESCRIPTION_TAG = (0x0008, 0x103E)
 PHOTOMETRIC_INTERPRETATION_TAG = (0x0028, 0x0004)
 REGION_PHYSICAL_DELTA_Y_SUBTAG = (0x0018, 0x602E)
-
-
+REFERENCE_LINE_TAG = (0x0018, 0x6022)  # Doppler Reference Line
 
 def forward_pass(inputs):
     logits = backbone(inputs)["out"] # torch.Size([1, 2, 480, 640])
@@ -111,7 +110,7 @@ if REGION_X1_SUBTAG in doppler_region:
 print("Doppler Region is located: X ranged from", x0, "to ", x1, ". Y ranged from ", y0, "to", y1)
 
 #horizontal line means the line where the Doppler signal starts
-horizontal_y = find_horizontal_line(input_image[y0:y1, :])
+horizontal_y = doppler_region[REFERENCE_LINE_TAG].value
 print("In Doppler image, Doppler baseline is located at Y=", horizontal_y)
 print("If ECG is flat, the Doppler baseline is located different position.")
 #Basically, the region where the Doppler signal starts is 342-345. We truncate the image from 342 to 768. Make 426*1024.

@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from argparse import ArgumentParser
 import pydicom
 from pydicom.pixel_data_handlers.util import  convert_color_space
-from utils import get_coordinates_from_dicom, find_horizontal_line, calculate_weighted_centroids_with_meshgrid, ybr_to_rgb
+from utils import get_coordinates_from_dicom, calculate_weighted_centroids_with_meshgrid, ybr_to_rgb
 from torchvision.models.segmentation import deeplabv3_resnet50
 
 
@@ -35,6 +35,7 @@ STUDY_DESCRIPTION_TAG = (0x0008, 0x1030)
 SERIES_DESCRIPTION_TAG = (0x0008, 0x103E)
 PHOTOMETRIC_INTERPRETATION_TAG = (0x0028, 0x0004)
 REGION_PHYSICAL_DELTA_Y_SUBTAG = (0x0018, 0x602E)
+REFERENCE_LINE_TAG = (0x0018, 0x6022)  # Doppler Reference Line
 
 def forward_pass(inputs):
     logits = backbone(inputs)["out"]
@@ -175,7 +176,7 @@ if y0 <340 or y0 > 350:
     raise ValueError("Error: Doppler Region is not located in the correct position. Please check the DICOM file. Our developed model is trained with y0 Doppler Region located in 342-348.")
 
 #horizontal line means the line where the Doppler signal starts
-horizontal_y = find_horizontal_line(input_image[y0:y1, :])
+horizontal_y = doppler_region[REFERENCE_LINE_TAG].value
 print("In Doppler image, Doppler baseline is located at Y=", horizontal_y)
 print("if ECG is flat and not masked, the Doppler baseline is located different position.")
 

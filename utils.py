@@ -104,39 +104,39 @@ def get_coordinates_from_dicom(
         print("No ultrasound regions found in DICOM file.")
         return None, None
     
-def find_horizontal_line(
-    image: np.ndarray,
-    angle_threshold: float = np.pi / 180,
-    line_threshold: float = 100,
-) -> int:
-    """
-    Horizontal line detection for Doppler images.
+# def find_horizontal_line(
+#     image: np.ndarray,
+#     angle_threshold: float = np.pi / 180,
+#     line_threshold: float = 100,
+# ) -> int:
+#     """
+#     Horizontal line detection for Doppler images.
     
-    Uses Canny edge detection and the Hough Transform to find the most prominent horizontal line in the image. 
-    Returns the y-coordinate of this line.
-    """
+#     Uses Canny edge detection and the Hough Transform to find the most prominent horizontal line in the image. 
+#     Returns the y-coordinate of this line.
+#     """
 
-    if len(image.shape) == 2: #Already gray image
-        gray_image = image
-    else:
-        gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+#     if len(image.shape) == 2: #Already gray image
+#         gray_image = image
+#     else:
+#         gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    edges = cv2.Canny(gray_image, 50, 150, apertureSize=3)
-    lines = cv2.HoughLines(edges, 1, np.pi / 180, line_threshold)
+#     edges = cv2.Canny(gray_image, 50, 150, apertureSize=3)
+#     lines = cv2.HoughLines(edges, 1, np.pi / 180, line_threshold)
 
-    if lines is not None:
-        for rho, theta in lines[:, 0]:
-            if (
-                abs(theta - np.pi / 2) < angle_threshold
-                or abs(theta - 3 * np.pi / 2) < angle_threshold
-            ):
-                a = np.cos(theta)
-                b = np.sin(theta)
-                x0 = a * rho
-                y0 = b * rho
-                y = int(y0)
-                return y
-    return None
+#     if lines is not None:
+#         for rho, theta in lines[:, 0]:
+#             if (
+#                 abs(theta - np.pi / 2) < angle_threshold
+#                 or abs(theta - 3 * np.pi / 2) < angle_threshold
+#             ):
+#                 a = np.cos(theta)
+#                 b = np.sin(theta)
+#                 x0 = a * rho
+#                 y0 = b * rho
+#                 y = int(y0)
+#                 return y
+#     return None
 
 #Convert YBR_FULL_422 to RGB
 lut=np.load("/workspace/yuki/measurements_internal/measurements/ybr_to_rgb_lut.npy")
