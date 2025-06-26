@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from argparse import ArgumentParser
 import pydicom
 from pydicom.pixel_data_handlers.util import  convert_color_space
-from utils import get_coordinates_from_dicom, find_horizontal_line, calculate_weighted_centroids_with_meshgrid, ybr_to_rgb
+from utils import get_coordinates_from_dicom, calculate_weighted_centroids_with_meshgrid, ybr_to_rgb
 from torchvision.models.segmentation import deeplabv3_resnet50
 import os
 
@@ -31,6 +31,8 @@ REGION_Y1_SUBTAG = (0x0018, 0x601E)  # bottom
 PHOTOMETRIC_INTERPRETATION_TAG = (0x0028, 0x0004)
 REGION_PHYSICAL_DELTA_Y_SUBTAG = (0x0018, 0x602E)
 ULTRASOUND_COLOR_DATA_PRESENT_TAG = (0x0028, 0x0014)
+REFERENCE_LINE_TAG = (0x0018, 0x6022)  # Doppler Reference Line
+
 
 def forward_pass(inputs):
     logits = backbone(inputs)["out"]
@@ -185,7 +187,7 @@ for DICOM_FILE in DICOM_FILES:
             raise ValueError("Error: Doppler Region is not located in the correct position. Please check the DICOM file. Our developed model is trained with y0 Doppler Region located in 342-348.")
 
         #horizontal line means the line where the Doppler signal starts
-        horizontal_y = find_horizontal_line(input_image[y0:y1, :])
+        horizontal_y = doppler_region[REFERENCE_LINE_TAG].value
         #Basically, the region where the Doppler signal starts is 342-345. We truncate the image from 342 to 768. Make 426*1024.
         input_dicom_doppler_area = input_image[342 :,:, :] 
 
