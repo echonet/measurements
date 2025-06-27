@@ -11,7 +11,6 @@ import pydicom
 from pydicom.pixel_data_handlers.util import  convert_color_space
 
 from utils import segmentation_to_coordinates, process_video_with_diameter, get_coordinates_from_dicom, ybr_to_rgb
-from utils import get_systole_diastole, calculate_lvef_teicholz
 
 """
 This file is for 2D frame-to-frame inference.
