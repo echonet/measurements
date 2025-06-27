@@ -195,7 +195,8 @@ def process_video_with_diameter(video_path,
                                 df, 
                                 conversion_factor_X,
                                 conversion_factor_Y,
-                                ratio):
+                                ratio,
+                                systole_diastole_analysis: bool = False):
     # Load video
     cap = cv2.VideoCapture(video_path)
     frames = []
@@ -230,14 +231,38 @@ def process_video_with_diameter(video_path,
 
     out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'XVID'), fps, (output_width, output_height))
 
-    for i, frame in enumerate(tqdm(frames_array)):
+    if systole_diastole_analysis:
+        systolic_i, diastolic_i = get_systole_diastole(smooth_diameters, 
+                                                    smoothing=False, 
+                                                    kernel=[1, 2, 3, 2, 1], 
+                                                    distance= 25) #25 is default value.
+        
+        if systolic_i is None or diastolic_i is None:
+            return print("No systolic or diastolic peaks found in the diameter signal.")
+        
+        systolic_diamter = smooth_diameters[systolic_i]
+        diastolic_diamter = smooth_diameters[diastolic_i]
+        
+        #pick first pair values
+        INDEX = 0
+        systolic_frame = systolic_i[INDEX] if isinstance(systolic_i, np.ndarray) else systolic_i
+        diastolic_frame = diastolic_i[INDEX] if isinstance(diastolic_i, np.ndarray) else diastolic_i
+        systolic_diamter = systolic_diamter[INDEX] if isinstance(systolic_diamter, np.ndarray) else systolic_diamter
+        diastolic_diamter = diastolic_diamter[INDEX] if isinstance(diastolic_diamter, np.ndarray) else diastolic_diamter 
+        LVEF_by_teicholz = calculate_lvef_teicholz(diastolic_diameter= diastolic_diamter,
+                                                systolic_diameter= systolic_diamter)
+        print(f"LVEF by teicholz methods was {LVEF_by_teicholz:.3f} %")
+    
+    for i, frame in enumerate(tqdm(frames_array)):    
         fig, ax = plt.subplots(figsize=(8, 2))
         ax.plot(diameters, label='Raw Diameter', alpha=0.6)
         ax.plot(smooth_diameters, label='Smoothed Diameter', color='red')
         ax.axvline(x=i, color='black', linestyle='--', alpha=0.5)
+        ax.scatter(systolic_frame, systolic_diamter, color='blue',  marker='o')
+        ax.scatter(diastolic_frame, diastolic_diamter, color='yellow',  marker='o') 
         ax.legend()
         ax.set_ylim(0, max(diameters) * 1.1)
-        ax.set_xlabel('Frame')
+        ax.set_xlabel('')
         ax.set_ylabel('Diameter')
 
         canvas = FigureCanvas(fig)
@@ -253,9 +278,9 @@ def process_video_with_diameter(video_path,
         plt.close(fig)
         plot_image = cv2.resize(plot_image, (width, plot_height))
         # Stack video frame and plot vertically
-        combined_frame = np.vstack((frame, plot_image))
+        combined_image = np.vstack((frame, plot_image))
 
-        out.write(cv2.cvtColor(combined_frame, cv2.COLOR_RGB2BGR))
+        out.write(cv2.cvtColor(combined_image, cv2.COLOR_RGB2BGR))
 
     out.release()
     
@@ -300,3 +325,29 @@ def get_systole_diastole(diameter: np.ndarray,
         systole_i = np.delete(systole_i, np.where((systole_i == start_minmax) | (systole_i == end_minmax)))
     
     return systole_i, diastole_i
+
+def calculate_lvef_teicholz(diastolic_diameter : float, 
+                            systolic_diameter: float):
+    """
+    Calculates Left Ventricular Ejection Fraction (LVEF) using the Teicholz formula.
+
+    Args:
+        diastolic_diameter (float): Left ventricular end-diastolic diameter (LVIDd) in cm.
+        systolic_diameter (float): Left ventricular end-systolic diameter (LVIDs) in cm.
+
+    Returns:
+        float: Left Ventricular Ejection Fraction (LVEF) as a percentage.
+               Returns None if input values are invalid (e.g., negative, systolic > diastolic).
+    """
+    if systolic_diameter > diastolic_diameter:
+        print("Error: Systolic diameter cannot be greater than diastolic diameter.")
+        return None
+    
+    # Calculate LVEDV and ESV using Teicholz formula
+    lvedv = (7.0 / (2.4 + diastolic_diameter)) * (diastolic_diameter ** 3)
+    lvesv = (7.0 / (2.4 + systolic_diameter)) * (systolic_diameter ** 3)
+    # Calculate Stroke Volume (SV)
+    sv = lvedv - lvesv
+    lvef = (sv / lvedv) * 100
+
+    return lvef
