@@ -1,13 +1,17 @@
-from pathlib import Path
-import torch
 import pandas as pd
-from torchvision.models.segmentation import deeplabv3_resnet50
-import cv2
 import numpy as np
+from pathlib import Path
 from argparse import ArgumentParser
-from utils import segmentation_to_coordinates, process_video_with_diameter, get_coordinates_from_dicom, ybr_to_rgb
+
+import torch
+from torchvision.models.segmentation import deeplabv3_resnet50
+
+import cv2
 import pydicom
 from pydicom.pixel_data_handlers.util import  convert_color_space
+
+from utils import segmentation_to_coordinates, process_video_with_diameter, get_coordinates_from_dicom, ybr_to_rgb
+from utils import get_systole_diastole, calculate_lvef_teicholz
 
 """
 This file is for 2D frame-to-frame inference.
@@ -33,6 +37,7 @@ parser.add_argument("--model_weights", type=str, required = True, choices=[
         ])
 parser.add_argument("--file_path", type=str, required = True, help= "Path to the video file (both AVI and DICOM)")
 parser.add_argument("--output_path", type=str, required = True, help= "Output. Defalut should be AVI")
+parser.add_argument("--phase_estimate", action='store_true', help="Estimate systole and diastole phase from the video. Default is False.")
 args = parser.parse_args()
 
 SEGMENTATION_THRESHOLD = 0.0
@@ -58,7 +63,7 @@ def forward_pass(inputs):
     )
     return predictions
 
-print("Note: This script is for 2D frame-to-frame inference.")
+print(f"Note: This script is for 2D frame-to-frame inference. {args.model_weights} prediction.")
 
 input_type = None
 VIDEO_FILE = args.file_path
@@ -186,25 +191,22 @@ if input_type == "avi":
     print("Completed. Distance between two points is not calculated from .avi input.")
 
 if input_type == "dcm":
+    
+    if args.phase_estimate and args.model_weights == "lvid":
+        systole_diastole_analysis = True
+    else:
+        systole_diastole_analysis = False
+         
     process_video_with_diameter(video_path = output_video_path, 
                                 output_path = output_video_path.replace(".avi", "_distance.avi"),
                                 conversion_factor_X = conversion_factor_X,
                                 conversion_factor_Y = conversion_factor_Y,
                                 df = df,
-                                ratio = ratio_height)
+                                ratio = ratio_height,
+                                systole_diastole_analysis = systole_diastole_analysis
+                                )
     print("Distance between two points is calculated from .dcm input.")
     print(f"Completed.Please check {output_video_path.replace('.avi', '_distance.avi')}")
-
-phase_estimate = False
-if phase_estimate:
-    from utils import get_systole_diastole
-    process_video_with_diameter_path = output_video_path.replace(".avi", ".csv")
-    diameter_table = pd.read_csv(process_video_with_diameter_path)
-    diameter = diameter_table["smooth_diameter"].values
-    print(get_systole_diastole(diameter, 
-                     smoothing=False, 
-                     kernel=[1, 2, 3, 2, 1], 
-                     distance=25))
 
 #SAMPLE SCRIPT
 
@@ -243,3 +245,6 @@ if phase_estimate:
 #python inference_2D_image.py --model_weights "ivc"
 #--file_path "./SAMPLE_DICOM/IVC_SAMPLE_0.dcm" 
 #--output_path "./OUTPUT/AVI/IVC_SAMPLE_GENERATED.avi" 
+
+
+
