@@ -76,6 +76,7 @@ def forward_pass(inputs):
     try:
         min_distance_coord  = min(distance_centroid_btw_maxlogits, key=distance_centroid_btw_maxlogits.get)
     except:
+        # Missing Pair point
         raise ValueError("Error: min_distance_coord is not found, due to low prediction score. Select Good quality MVPeak Doppler data")
     
     #3. Calculate distance between min_distance_coord and other centroids
@@ -104,16 +105,20 @@ def forward_pass(inputs):
         min_distance_paired_coord = min(non_zero_distance_btw_centroids, key=non_zero_distance_btw_centroids.get)
         pair_coords = [min_distance_coord, min_distance_paired_coord] 
     except:
+        # Missing Pair point
         raise ValueError("Error: min_distance_coord is not found, due to low prediction score. Select Good quality MVPeak Doppler data")
     
     point_x1, point_y1= pair_coords[0][0], pair_coords[0][1] 
     point_x2, point_y2 = pair_coords[1][0], pair_coords[1][1]
-            
+    swapped = False     
     if point_x1 > point_x2:
+        # Swap to make point1 is left side, point2 is right side / Swap EA
         point_x1, point_y1, point_x2, point_y2 = point_x2, point_y2, point_x1, point_y1
+        swapped = True
 
     distance_x1_x2 = abs(point_x1 - point_x2)
     if distance_x1_x2 > 300:
+        # Inference results are not reliable if the distance between two E and A points is too far.
         raise ValueError("Error: The distance between two points is too far. Please select the good quality Doppler data.")
             
     return point_x1, point_y1, point_x2, point_y2
@@ -134,12 +139,17 @@ backbone.eval()
 results =[]
 
 #LOAD DICOM IMAGE with DOPPLER REGION
-DICOM_FILES = [os.path.join(args.folders, f) for f in os.listdir(args.folders) if f.endswith(".dcm")]
+DICOM_FILES = [os.path.join(args.folders, f) for f in os.listdir(args.folders)]
 
 if args.output_path_folders:
     OUTPUT_FOLDERS = args.output_path_folders
     if not os.path.exists(OUTPUT_FOLDERS): 
         os.makedirs(OUTPUT_FOLDERS)
+
+count_swap = 0
+count_missing = 0
+count_difference_large = 0
+count_other_errors = 0
 
 for DICOM_FILE in DICOM_FILES:
     try:
@@ -234,8 +244,16 @@ for DICOM_FILE in DICOM_FILES:
             "height": height,
             "width": width
         })
+    except ValueError as e:
+        error_message = str(e)
+        if "min_distance_coord is not found" in error_message:
+            count_missing += 1
+        elif "distance between two points is too far" in error_message:
+            count_difference_large += 1
+        print(f"Skipped {DICOM_FILE} due to ValueError: {error_message}")
     except Exception as e:
-        print(f"Error: {DICOM_FILE}, {e}")
+        print(f"An unexpected error occurred with {DICOM_FILE}: {e}")
+        count_other_errors += 1
 
 metadata = pd.DataFrame(results)
 if args.output_path_folders:
@@ -243,6 +261,15 @@ if args.output_path_folders:
     
 
 print(metadata.head())
+
+print("\n--- Error Summary ---")
+print(f"Total DICOM files processed: {len(DICOM_FILES)}")
+print(f"Successfully processed: {len(results)}")
+print(f"E/A Swapped count: {count_swap}")
+print(f"Missing point errors: {count_missing}")
+print(f"Distance > 300 errors: {count_difference_large}")
+print(f"Other unexpected errors: {count_other_errors}")
+print("---------------------\n")
 
 #SAMPLE SCRIPT
 #python inference_MV_EperA_folders.py  --folders ./SAMPLE_DICOM/MVPEAK_FOLDERS  --output_path_folders ./OUTPUT/MVPEAK

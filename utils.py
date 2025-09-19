@@ -8,6 +8,7 @@ import scipy.signal
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+import torchvision
 
 from scipy.signal import savgol_filter
 
@@ -103,40 +104,6 @@ def get_coordinates_from_dicom(
     else:
         print("No ultrasound regions found in DICOM file.")
         return None, None
-    
-# def find_horizontal_line(
-#     image: np.ndarray,
-#     angle_threshold: float = np.pi / 180,
-#     line_threshold: float = 100,
-# ) -> int:
-#     """
-#     Horizontal line detection for Doppler images.
-    
-#     Uses Canny edge detection and the Hough Transform to find the most prominent horizontal line in the image. 
-#     Returns the y-coordinate of this line.
-#     """
-
-#     if len(image.shape) == 2: #Already gray image
-#         gray_image = image
-#     else:
-#         gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-#     edges = cv2.Canny(gray_image, 50, 150, apertureSize=3)
-#     lines = cv2.HoughLines(edges, 1, np.pi / 180, line_threshold)
-
-#     if lines is not None:
-#         for rho, theta in lines[:, 0]:
-#             if (
-#                 abs(theta - np.pi / 2) < angle_threshold
-#                 or abs(theta - 3 * np.pi / 2) < angle_threshold
-#             ):
-#                 a = np.cos(theta)
-#                 b = np.sin(theta)
-#                 x0 = a * rho
-#                 y0 = b * rho
-#                 y = int(y0)
-#                 return y
-#     return None
 
 #Convert YBR_FULL_422 to RGB
 lut=np.load("/workspace/yuki/measurements_internal/measurements/ybr_to_rgb_lut.npy")
@@ -197,7 +164,12 @@ def process_video_with_diameter(video_path,
                                 conversion_factor_Y,
                                 ratio,
                                 systole_diastole_analysis: bool = False):
-    # Load video
+
+    if video_path.endswith(".avi"):
+        input_type = "avi"
+    elif video_path.endswith(".mp4"):
+        input_type = "mp4"
+        
     cap = cv2.VideoCapture(video_path)
     frames = []
     while True:
@@ -229,7 +201,10 @@ def process_video_with_diameter(video_path,
     output_height = height + plot_height
     output_width = width
 
-    out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'XVID'), fps, (output_width, output_height))
+    if input_type == "avi":
+        out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'XVID'), fps, (output_width, output_height))
+    elif input_type == "mp4":
+        out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (output_width, output_height))
 
     if systole_diastole_analysis:
         systolic_i, diastolic_i = get_systole_diastole(smooth_diameters, 
@@ -255,12 +230,15 @@ def process_video_with_diameter(video_path,
     
     for i, frame in enumerate(tqdm(frames_array)):    
         fig, ax = plt.subplots(figsize=(8, 2))
-        ax.plot(diameters, label='Raw Diameter', alpha=0.6)
-        ax.plot(smooth_diameters, label='Smoothed Diameter', color='red')
+        # ax.plot(diameters, label='Raw Diameter', alpha=0.6)
+        ax.plot(smooth_diameters, color='skyblue')
         ax.axvline(x=i, color='black', linestyle='--', alpha=0.5)
-        ax.scatter(systolic_frame, systolic_diamter, color='blue',  marker='o')
-        ax.scatter(diastolic_frame, diastolic_diamter, color='yellow',  marker='o') 
-        ax.legend()
+        
+        if systole_diastole_analysis:
+            ax.scatter(systolic_frame, systolic_diamter, color='blue',  marker='o')
+            ax.scatter(diastolic_frame, diastolic_diamter, color='red',  marker='o') 
+            
+        # ax.legend()
         ax.set_ylim(0, max(diameters) * 1.1)
         ax.set_xlabel('')
         ax.set_ylabel('Diameter')
@@ -286,10 +264,149 @@ def process_video_with_diameter(video_path,
     
     df["diameter"] = diameters
     df["smooth_diameter"] = smooth_diameters
-    df.to_csv(output_path.replace(".avi", ".csv"), index=False)
-
-    print(f"Output Distance avi saved to {output_path}")
     
+    if input_type == "avi":
+        output_path_replaced = output_path.replace(".avi", ".csv")
+    elif input_type == "mp4":
+        output_path_replaced = output_path.replace(".mp4", ".csv")
+
+    df.to_csv(output_path_replaced, index=False)
+
+    print(f"Output Distance avi saved to {output_path},\n and csv saved to {output_path_replaced}")
+    
+def process_video_with_diameter_tv(video_path, 
+                                output_path, 
+                                df, 
+                                conversion_factor_X,
+                                conversion_factor_Y,
+                                ratio,
+                                systole_diastole_analysis: bool = False):
+
+    cap = cv2.VideoCapture(video_path)
+    frames_bgr = [] # Collect frames as BGR from cv2.VideoCapture
+    while True:
+        ret, frame = cap.read() # frame will be BGR
+        if not ret:
+            break
+        frames_bgr.append(frame)
+    cap.release()
+    
+    if not frames_bgr: # Handle case where video_path might be empty or invalid
+        print(f"Error: No frames read from video_path: {video_path}")
+        return # Exit gracefully or raise error
+
+
+    # Get coordinates from dataframe
+    x1_preds = df["pred_x1"].values
+    y1_preds = df["pred_y1"].values
+    x2_preds = df["pred_x2"].values
+    y2_preds = df["pred_y2"].values
+
+    delta_x_diam = abs(x2_preds - x1_preds)
+    delta_y_diam = abs(y2_preds - y1_preds)
+    diameters = np.sqrt((delta_x_diam * conversion_factor_X)**2 + (delta_y_diam * conversion_factor_Y)**2)
+
+    fps = 30
+    cutoff = bpm_to_frame_freq(window_len=len(diameters), fps=fps, bpm=140)
+    smooth_diameters = apply_lpf(diameters, cutoff)
+
+    height, width = frames_bgr[0].shape[:2]
+    plot_height = int(width * 0.3)
+    output_height = height + plot_height
+    output_width = width
+
+    # Phase analysis logic (unchanged)
+    if systole_diastole_analysis:
+        systolic_i, diastolic_i = get_systole_diastole(smooth_diameters, smoothing=False, kernel=[1, 2, 3, 2, 1], distance=25)
+        
+        if systolic_i is None or diastolic_i is None or len(systolic_i)==0 or len(diastolic_i)==0:
+            print("No systolic or diastolic peaks found in the diameter signal.")
+            systolic_frame, diastolic_frame, systolic_diamter, diastolic_diamter, LVEF_by_teicholz = None, None, None, None, None
+        else:
+            systolic_diamter = smooth_diameters[systolic_i]
+            diastolic_diamter = smooth_diameters[diastolic_i]
+
+            INDEX = 0
+            systolic_frame = systolic_i[INDEX] if isinstance(systolic_i, np.ndarray) and len(systolic_i) > INDEX else None
+            diastolic_frame = diastolic_i[INDEX] if isinstance(diastolic_i, np.ndarray) and len(diastolic_i) > INDEX else None
+            systolic_diamter = systolic_diamter[INDEX] if isinstance(systolic_diamter, np.ndarray) and len(systolic_diamter) > INDEX else None
+            diastolic_diamter = diastolic_diamter[INDEX] if isinstance(diastolic_diamter, np.ndarray) and len(diastolic_diamter) > INDEX else None 
+            
+            if systolic_diamter is not None and diastolic_diamter is not None and diastolic_diamter > 0:
+                LVEF_by_teicholz = calculate_lvef_teicholz(diastolic_diameter= diastolic_diamter,
+                                                        systolic_diameter= systolic_diamter)
+            else:
+                LVEF_by_teicholz = None
+            if LVEF_by_teicholz is not None:
+                print(f"LVEF by teicholz methods was {LVEF_by_teicholz:.3f} %")
+            else:
+                print("LVEF could not be calculated (invalid diameters or peaks).")
+    else:
+        systolic_frame, diastolic_frame, systolic_diamter, diastolic_diamter, LVEF_by_teicholz = None, None, None, None, None
+    
+    
+    final_video_frames_tensors = [] # Collect frames as RGB tensors for torchvision.io.write_video
+    for i, frame_bgr in enumerate(tqdm(frames_bgr)):    
+        # Convert frame from BGR to RGB (for Matplotlib and torchvision.io)
+        frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+
+
+        fig, ax = plt.subplots(figsize=(8, 2))
+        ax.plot(diameters, label='Raw Diameter', alpha=0.6)
+        ax.plot(smooth_diameters, label='Smoothed Diameter', color='red')
+        ax.axvline(x=i, color='black', linestyle='--', alpha=0.5)
+        
+        if systole_diastole_analysis and systolic_frame is not None and diastolic_frame is not None:
+            if isinstance(systolic_i, np.ndarray) and len(systolic_i) > 0:
+                ax.scatter(systolic_i, smooth_diameters[systolic_i], color='blue', marker='o', label='Systole Peaks')
+            if isinstance(diastolic_i, np.ndarray) and len(diastolic_i) > 0:
+                ax.scatter(diastolic_i, smooth_diameters[diastolic_i], color='yellow', marker='o', label='Diastole Peaks')
+            ax.legend()
+
+        ax.set_ylim(0, max(diameters) * 1.1 if len(diameters) > 0 else 1.0)
+        ax.set_xlabel('Frame Number')
+        ax.set_ylabel('Diameter (cm)')
+        ax.set_title(f'Diameter Over Time (LVEF: {LVEF_by_teicholz:.2f}%)' if LVEF_by_teicholz is not None else 'Diameter Over Time')
+
+        canvas = FigureCanvas(fig)
+        canvas.draw()
+        try:    
+            plot_image_rgb = np.frombuffer(canvas.tostring_rgb(), dtype='uint8')
+            plot_image_rgb = plot_image_rgb.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+        except Exception as e:
+            buf = canvas.buffer_rgba()
+            plot_image_rgba = np.asarray(buf)
+            plot_image_rgb = plot_image_rgba[:, :, :3] 
+            
+        plt.close(fig)
+        plot_image_rgb = cv2.resize(plot_image_rgb, (width, plot_height))
+        
+        # Stack video frame (RGB) and plot (RGB) vertically
+        combined_image_rgb = np.vstack((frame_rgb, plot_image_rgb))
+        final_video_frames_tensors.append(torch.from_numpy(combined_image_rgb))
+
+    # Write final video using torchvision.io.write_video
+    if final_video_frames_tensors:
+        video_tensor_to_write = torch.stack(final_video_frames_tensors) # (F, H, W, C)
+        torchvision.io.write_video(
+            filename=output_path,
+            video_array=video_tensor_to_write,
+            fps=fps,
+            video_codec='libx264' # Specify H.264 codec
+        )
+    else:
+        print(f"Warning: No frames to write for output video: {output_path}")
+
+    df["diameter"] = diameters
+    df["smooth_diameter"] = smooth_diameters
+    df.to_csv(output_path.replace(".mp4", ".csv"), index=False)
+    
+    if systole_diastole_analysis:
+        return LVEF_by_teicholz
+
+    return None
+
+
 def get_systole_diastole(diameter: np.ndarray, 
                          smoothing: bool=False,
                          kernel=[1, 2, 3, 2, 1], 
