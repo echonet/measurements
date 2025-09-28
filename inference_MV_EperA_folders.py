@@ -121,7 +121,7 @@ def forward_pass(inputs):
         # Inference results are not reliable if the distance between two E and A points is too far.
         raise ValueError("Error: The distance between two points is too far. Please select the good quality Doppler data.")
             
-    return point_x1, point_y1, point_x2, point_y2
+    return point_x1, point_y1, point_x2, point_y2, swapped
 
 print("Note: This script is for MV Peak E or E/A inference. Input DICOM height and width are 768/1024 respectively.")
 
@@ -207,7 +207,10 @@ for DICOM_FILE in DICOM_FILES:
         doppler_area_tensor = doppler_area_tensor.to(device)
 
         with torch.no_grad():
-            point_x1, point_y1, point_x2, point_y2 = forward_pass(doppler_area_tensor)
+            point_x1, point_y1, point_x2, point_y2, swapped = forward_pass(doppler_area_tensor) # swapped : True/False 
+            if swapped:
+                count_swap += 1
+                print(f"Note: E/A points are swapped for {DICOM_FILE}.") 
             
             Inference_E_Vel = round(abs((point_y1 - horizontal_y) * PhysicalDeltaY_doppler),4)
             Inference_A_Vel = round(abs((point_y2 - horizontal_y) * PhysicalDeltaY_doppler),4)
