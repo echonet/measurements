@@ -106,7 +106,7 @@ def get_coordinates_from_dicom(
         return None, None
 
 #Convert YBR_FULL_422 to RGB
-lut=np.load("/workspace/yuki/measurements_internal/measurements/ybr_to_rgb_lut.npy")
+lut=np.load("ybr_to_rgb_lut.npy")
 def ybr_to_rgb(x):
     return lut[x[..., 0], x[..., 1], x[..., 2]]
 
