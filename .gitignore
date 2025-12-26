@@ -11,6 +11,7 @@ wandb
 # *.png
 *.jpg
 *.pt
+*.pyc
 SAMPLE_AVI
 SAMPLE_DICOM
 __pycache__

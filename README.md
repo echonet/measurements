@@ -20,9 +20,10 @@ Herein, we show gif file. Please refer `videos/EchoNet_Annotation.mp4` if you wa
 <img src="https://github.com/echonet/measurements/blob/main/image/Echocardiography_Doppler_AutoMeasurement_vs_Human.png" alt="Doppler DL vs Human" width="600"/>
 
 
-- **Presentation**: Conference information will be updated.  
-- **Preprint**: link will be added once preprint is released  
-- **Paper**: link will be added once preprint is released
+- **Presentation**: ASE 2025 Late Breaking Clinical Trial / Young Investigator Award Finalist.
+- **Paper**: [Sahashi Y, Ieki H, Yuan V, Christensen M, Vukadinovic M, Binder-Rodriguez C, Rhee J, Zou JY, He B, Cheng P, Ouyang D. Artificial Intelligence Automation of Echocardiographic Measurements. J Am Coll Cardiol. 2025 Sep 30;86(13):964-978. doi: 10.1016/j.jacc.2025.07.053. Epub 2025 Sep 7. PMID: 40914895.](https://www.jacc.org/doi/10.1016/j.jacc.2025.07.053)
+
+<img src="https://github.com/echonet/measurements/blob/main/image/JACC.png" alt="JACC cover Image" width="600"/>
 
 **Key Benefits in the clinical practice**:
 - Efficiency: Reducing the time needed for manual annotations.
@@ -111,3 +112,24 @@ Demo videos that illustrate how the model works in real-world applications. At t
 To protect patient privacy and sensitive information, we have decided not to make the demo videos publicly available. Herein, we used **de-identified Dicom files** for this demo.
 
 ![Representative Videos for 2D Auto-Annotated Echocardiography](videos/Gradio_demo_TRVMAX.gif)
+
+
+## Citation
+If you find this code or model useful for your research, please cite our paper:
+
+**Text**
+> Sahashi Y, Ieki H, Yuan V, Christensen M, Vukadinovic M, Binder-Rodriguez C, Rhee J, Zou JY, He B, Cheng P, Ouyang D. Artificial Intelligence Automation of Echocardiographic Measurements. J Am Coll Cardiol. 2025 Sep 30;86(13):964-978. doi: 10.1016/j.jacc.2025.07.053. Epub 2025 Sep 7. PMID: 40914895.
+
+**BibTeX**
+```bibtex
+@article{sahashi2025ai,
+  title={Artificial Intelligence Automation of Echocardiographic Measurements},
+  author={Sahashi, Yuki and Ieki, Hirotaka and Yuan, V and Christensen, M and Vukadinovic, M and Binder-Rodriguez, C and Rhee, J and Zou, JY and He, B and Cheng, P and Ouyang, D},
+  journal={Journal of the American College of Cardiology},
+  volume={86},
+  number={13},
+  pages={964--978},
+  year={2025},
+  publisher={American College of Cardiology Foundation Washington, DC},
+  doi={10.1016/j.jacc.2025.07.053}
+}
