@@ -23,7 +23,7 @@ Herein, we show gif file. Please refer `videos/EchoNet_Annotation.mp4` if you wa
 - **Presentation**: ASE 2025 Late Breaking Clinical Trial / Young Investigator Award Finalist.
 - **Paper**: [Sahashi Y, Ieki H, Yuan V, Christensen M, Vukadinovic M, Binder-Rodriguez C, Rhee J, Zou JY, He B, Cheng P, Ouyang D. Artificial Intelligence Automation of Echocardiographic Measurements. J Am Coll Cardiol. 2025 Sep 30;86(13):964-978. doi: 10.1016/j.jacc.2025.07.053. Epub 2025 Sep 7. PMID: 40914895.](https://www.jacc.org/doi/10.1016/j.jacc.2025.07.053)
 
-<img src="https://github.com/echonet/measurements/blob/main/image/JACC.png" alt="JACC cover Image" width="600"/>
+<img src="https://github.com/echonet/measurements/blob/main/image/JACC.jpg" alt="JACC cover Image" width="600"/>
 
 **Key Benefits in the clinical practice**:
 - Efficiency: Reducing the time needed for manual annotations.
@@ -72,6 +72,8 @@ A simple git clone will only download placeholder files (around 4KB each) instea
 (sudo) apt install git-lfs
 git lfs install
 git lfs pull
+
+# If you cannot run, please see github/release (on the right side of this page)
 ```
 
 **3. Run inference**:  
