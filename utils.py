@@ -468,3 +468,27 @@ def calculate_lvef_teicholz(diastolic_diameter : float,
     lvef = (sv / lvedv) * 100
 
     return lvef
+
+
+
+def process_diameter(df, 
+                    conversion_factor_X,
+                    conversion_factor_Y
+                    ):
+    
+    
+
+    x1 = df["pred_x1"].values
+    y1 = df["pred_y1"].values
+    x2 = df["pred_x2"].values
+    y2 = df["pred_y2"].values
+
+    delta_x = x2 - x1
+    delta_y = y2 - y1
+    raw_diameters = np.sqrt((delta_x * conversion_factor_X)**2 + (delta_y * conversion_factor_Y)**2)
+
+    fps = 30  # Example FPS, modify as necessary
+    cutoff = bpm_to_frame_freq(window_len=len(raw_diameters), fps=fps, bpm=140)
+    smooth_diameters = apply_lpf(raw_diameters, cutoff)
+    
+    return raw_diameters, smooth_diameters
