@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from argparse import ArgumentParser
 import pydicom
 from pydicom.pixel_data_handlers.util import  convert_color_space
-from utils import get_coordinates_from_dicom, find_horizontal_line, calculate_weighted_centroids_with_meshgrid, ybr_to_rgb
+from utils import get_coordinates_from_dicom, calculate_weighted_centroids_with_meshgrid, ybr_to_rgb
 from torchvision.models.segmentation import deeplabv3_resnet50
 
 """
@@ -167,12 +167,12 @@ if REGION_X0_SUBTAG in doppler_region:
     x0 = doppler_region[REGION_X0_SUBTAG].value
 if REGION_X1_SUBTAG in doppler_region: 
     x1 = doppler_region[REGION_X1_SUBTAG].value
-print("Doppler Region is located: X ranged from", x0, "to ", x1, ". Y ranged from ", y0, "to", y1)
-if y0 <340 or y0 > 350:
-    raise ValueError("Error: Doppler Region is not located in the correct position. Please check the DICOM file. Our developed model is trained with y0 Doppler Region located in 342-348.")
+print("Doppler Region is located: X ranged from x0 of", x0, "to x1 of", x1, ". Y ranged from y0 of", y0, "to y1 of", y1)
+# if y0 <340 or y0 > 350:
+    # raise ValueError("Error: Doppler Region is not located in the correct position. Please check the DICOM file. Our developed model is trained with y0 Doppler Region located in 342-348.")
 
 #Basically, the region where the Doppler signal starts is 342-345. We truncate the image from 342 to 768. Make 426*1024.
-input_dicom_doppler_area = ds.pixel_array[342 :,:, :] 
+input_dicom_doppler_area = ds.pixel_array[y0: ,:, :] 
 doppler_area_tensor = torch.tensor(input_dicom_doppler_area)
 doppler_area_tensor = doppler_area_tensor.permute(2, 0, 1).unsqueeze(0)
 doppler_area_tensor = doppler_area_tensor.float() / 255.0
@@ -180,10 +180,11 @@ doppler_area_tensor = doppler_area_tensor.to(device)
 
 with torch.no_grad():
     point_x1, point_y1, point_x2, point_y2 = forward_pass(doppler_area_tensor)
+    print("Predicted TAPSE Points are", point_x1, point_y1, "and", point_x2, point_y2)
 
     #In TAPSE, left point should be located Lower than right point
     if (point_x1 < point_x2) and (point_y1 < point_y2):
-        ValueError("Error: TAPSE point. left point should be located Lower than right point")
+        raise ValueError("Error: TAPSE point. left point should be located Lower than right point")
         
     calculated_TAPSE = np.sqrt((abs((point_x1- point_x2)) * PhysicalDeltaX_doppler)**2 + 
                                    (abs((point_y1 - point_y2)) * PhysicalDeltaY_doppler)**2).round(2)
@@ -199,6 +200,6 @@ print("Predicted TAPSE is", calculated_TAPSE, "cm")
 print("Output Image is saved at", args.output_path)
 
 # SAMPLE SCRIPT
-#python inference_TAPSE.py 
-#--file_path "./SAMPLE_DICOM/TAPSE_SAMPLE_0.dcm"
-#--output_path "./OUTPUT/JPG/TAPSE_SAMPLE_GENERATED.jpg"
+# python inference_TAPSE.py 
+# --file_path "./SAMPLE_DICOM/TAPSE_SAMPLE_0.dcm"
+# --output_path "./OUTPUT/JPG/TAPSE_SAMPLE_GENERATED.jpg"

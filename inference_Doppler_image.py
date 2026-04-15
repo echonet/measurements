@@ -114,7 +114,7 @@ horizontal_y = doppler_region[REFERENCE_LINE_TAG].value
 print("In Doppler image, Doppler baseline is located at Y=", horizontal_y)
 print("If ECG is flat, the Doppler baseline is located different position.")
 #Basically, the region where the Doppler signal starts is 342-345. We truncate the image from 342 to 768. Make 426*1024.
-input_dicom_doppler_area = input_image[342 :,:, :] 
+input_dicom_doppler_area = input_image[y0 :,:, :] 
 doppler_area_tensor = torch.tensor(input_dicom_doppler_area)
 doppler_area_tensor = doppler_area_tensor.permute(2, 0, 1).unsqueeze(0)
 doppler_area_tensor = doppler_area_tensor.float() / 255.0
@@ -127,6 +127,14 @@ with torch.no_grad():
     min_val = logit.min().item()
     logits_normalized = (logit - min_val) / (max_val - min_val)
     logits_normalized = logits_normalized.squeeze().cpu().numpy()
+    
+        #Save Overlay Image
+    heatmap = cv2.applyColorMap(np.uint8(255 * logits_normalized), cv2.COLORMAP_MAGMA)
+    overlay = cv2.addWeighted(input_dicom_doppler_area, 0.25, heatmap, 0.75, 0)
+    cv2.imwrite(args.output_path.replace(".jpg", "_overlay.jpg"), overlay)
+    cv2.imwrite(args.output_path.replace(".jpg", "_heatmap.jpg"), heatmap)
+
+    
     max_coords = np.unravel_index(np.argmax(logits_normalized), logits_normalized.shape)
     
     X = max_coords[1]  # Max Logit X value

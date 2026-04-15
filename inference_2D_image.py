@@ -14,7 +14,7 @@ from utils import segmentation_to_coordinates, process_video_with_diameter, get_
 
 """
 This file is for 2D frame-to-frame inference.
-The input is a video file (AVI or DICOM) and the output is a video file (AVI) with the predicted frame-to-frame annotation.
+The input is a video file (AVI or DICOM) and the output is a video file (AVI / MP4) with the predicted frame-to-frame annotation.
 
 Disclaimer: Please include the appropriate view corresponding to the measurement item. 
 (For example, LVID is typically measured in the PLAX view and not in A4C or PSAX. 
@@ -35,7 +35,7 @@ parser.add_argument("--model_weights", type=str, required = True, choices=[
             "ivc",
         ])
 parser.add_argument("--file_path", type=str, required = True, help= "Path to the video file (both AVI and DICOM)")
-parser.add_argument("--output_path", type=str, required = True, help= "Output. Defalut should be AVI")
+parser.add_argument("--output_path", type=str, required = True, help= "Output. Default should be AVI / MP4")
 parser.add_argument("--phase_estimate", action='store_true', help="Estimate systole and diastole phase from the video. Default is False.")
 args = parser.parse_args()
 
@@ -66,17 +66,23 @@ print(f"Note: This script is for 2D frame-to-frame inference. {args.model_weight
 
 input_type = None
 VIDEO_FILE = args.file_path
+OUTPUT_FILE = args.output_path
 
 if VIDEO_FILE.endswith(".avi"): input_type = "avi"
 elif VIDEO_FILE.endswith(".dcm"): input_type = "dcm"
 
+if OUTPUT_FILE.endswith(".avi") and (input_type == "avi" or input_type == "dcm"):
+    output_type = "avi"
+elif OUTPUT_FILE.endswith(".mp4") and (input_type == "dcm"): 
+    output_type = "mp4"
+
 if input_type is None:
     raise ValueError("File path must be either .avi or .dcm")
-if not args.output_path.endswith(".avi"):
-    raise ValueError("Output path must be .avi")
+if not (OUTPUT_FILE.endswith(".avi") or OUTPUT_FILE.endswith(".mp4")):
+    raise ValueError("Output path must be .avi or .mp4")
 
 # MODEL LOADING
-device = "cuda:0" #cpu / cuda
+device = "cuda:1" #cpu / cuda
 weights_path = f"./weights/2D_models/{args.model_weights}_weights.ckpt"
 weights = torch.load(weights_path, map_location=device)
 backbone = deeplabv3_resnet50(num_classes=2)  # 39,633,986 params / num_classes should be 2
@@ -136,14 +142,24 @@ predictions = predictions.cpu().numpy()
 
 #Make Output Video
 output_video_path = args.output_path
-out_avi = cv2.VideoWriter(
+
+if output_type == "avi":
+    out_video = cv2.VideoWriter(
             output_video_path,
             cv2.VideoWriter_fourcc(*"XVID"),
             30, #FPS defult
             (batch["inputs"].shape[-1], batch["inputs"].shape[-2]),  # Width, Height
         )
 
-if not out_avi.isOpened():
+elif output_type == "mp4":
+    out_video = cv2.VideoWriter(
+            output_video_path,
+            cv2.VideoWriter_fourcc(*"mp4v"),
+            30,  # FPS default
+            (batch["inputs"].shape[-1], batch["inputs"].shape[-2]),  # Width, Height
+        )
+
+if not out_video.isOpened():
     raise ValueError("Error: VideoWriter failed to open.")
 
 frame_number, pred_x1s, pred_y1s, pred_x2s, pred_y2s =[], [], [], [], []
@@ -170,10 +186,10 @@ for i, (frame, prediction) in enumerate(zip(input_tensor, predictions)):
     pred_x2s.append(prediction[1][0])
     pred_y2s.append(prediction[1][1])
     frame_number.append(i)
-    
-    out_avi.write(frame)
-    
-out_avi.release()
+
+    out_video.write(frame)
+
+out_video.release()
 print(f"Done, please check {output_video_path}")
 
 df = pd.DataFrame({
@@ -184,7 +200,10 @@ df = pd.DataFrame({
     "pred_y2": pred_y2s,
 })
 
-df.to_csv(output_video_path.replace(".avi", ".csv"), index=False)
+if output_type == "avi":
+    df.to_csv(output_video_path.replace(".avi", ".csv"), index=False)
+elif output_type == "mp4":
+    df.to_csv(output_video_path.replace(".mp4", ".csv"), index=False)
 
 if input_type == "avi":
     print("Completed. Distance between two points is not calculated from .avi input.")
@@ -196,8 +215,13 @@ if input_type == "dcm":
     else:
         systole_diastole_analysis = False
          
+    if output_type == "avi":
+        output_video_path_replaced = output_video_path.replace(".avi", "_distance.avi")
+    elif output_type == "mp4":
+        output_video_path_replaced = output_video_path.replace(".mp4", "_distance.mp4")
+    
     process_video_with_diameter(video_path = output_video_path, 
-                                output_path = output_video_path.replace(".avi", "_distance.avi"),
+                                output_path = output_video_path_replaced,
                                 conversion_factor_X = conversion_factor_X,
                                 conversion_factor_Y = conversion_factor_Y,
                                 df = df,
@@ -205,17 +229,21 @@ if input_type == "dcm":
                                 systole_diastole_analysis = systole_diastole_analysis
                                 )
     print("Distance between two points is calculated from .dcm input.")
-    print(f"Completed.Please check {output_video_path.replace('.avi', '_distance.avi')}")
+    print(f"Completed.Please check {output_video_path_replaced}")
 
 #SAMPLE SCRIPT
 
 #python inference_2D_image.py --model_weights "ivs" 
 #--file_path "./SAMPLE_DICOM/IVS_SAMPLE_0.dcm" 
 #--output_path "./OUTPUT/AVI/IVS_SAMPLE_GENERATED.avi"
+#--output_path "./OUTPUT/MP4/IVS_SAMPLE_GENERATED.mp4"
 
 #python inference_2D_image.py --model_weights "lvid" 
-#--file_path "./SAMPLE_DICOM/LVID_SAMPLE_0.dcm" 
+#--file_path "./SAMPLE_DICOM/LVID_SAMPLE_0.dcm"  
 #--output_path "./OUTPUT/AVI/LVID_SAMPLE_GENERATED.avi"
+#--output_path "./OUTPUT/MP4/LVID_SAMPLE_GENERATED.mp4"
+#--phase_estimate
+
 
 #python inference_2D_image.py --model_weights "lvpw"
 #--file_path "./SAMPLE_DICOM/LVPW_SAMPLE_0.dcm"
@@ -244,6 +272,8 @@ if input_type == "dcm":
 #python inference_2D_image.py --model_weights "ivc"
 #--file_path "./SAMPLE_DICOM/IVC_SAMPLE_0.dcm" 
 #--output_path "./OUTPUT/AVI/IVC_SAMPLE_GENERATED.avi" 
+#--output_path "./OUTPUT/AVI/IVC_SAMPLE_GENERATED.mp4" 
+
 
 
 
