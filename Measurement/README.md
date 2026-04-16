@@ -10,20 +10,20 @@ Herein, we show gif file. Please refer `videos/EchoNet_Annotation.mp4` if you wa
 
 **Frame-to-frame predictions (gif)**
 
-![Representative Videos for 2D Auto-Annotated Echocardiography](videos/EchoNet_Annotation.gif)
+![Representative Videos for 2D Auto-Annotated Echocardiography](data/videos/EchoNet_Annotation.gif)
 
 **2D. B-mode Linear Measurement Echo DL vs Human**
-<img src="https://github.com/echonet/measurements/blob/main/Measurement/Readme_Image/Echocardiography_2D_AutoMeasurement_vs_Human.png" alt="2D Echo DL vs Human" width="600"/>
+<img src="Readme_Image/Echocardiography_2D_AutoMeasurement_vs_Human.png" alt="2D Echo DL vs Human" width="600"/>
 
 **Doppler Measurement Echo DL vs Human**
 
-<img src="https://github.com/echonet/measurements/blob/main/Measurement/Readme_Image/Echocardiography_Doppler_AutoMeasurement_vs_Human.png" alt="Doppler DL vs Human" width="600"/>
+<img src="Readme_Image/Echocardiography_Doppler_AutoMeasurement_vs_Human.png" alt="Doppler DL vs Human" width="600"/>
 
 
 - **Presentation**: ASE 2025 Late Breaking Clinical Trial / Young Investigator Award Finalist.
 - **Paper**: [Sahashi Y, Ieki H, Yuan V, Christensen M, Vukadinovic M, Binder-Rodriguez C, Rhee J, Zou JY, He B, Cheng P, Ouyang D. Artificial Intelligence Automation of Echocardiographic Measurements. J Am Coll Cardiol. 2025 Sep 30;86(13):964-978. doi: 10.1016/j.jacc.2025.07.053. Epub 2025 Sep 7. PMID: 40914895.](https://www.jacc.org/doi/10.1016/j.jacc.2025.07.053)
 
-<img src="https://github.com/echonet/measurements/blob/main/Measurement/Readme_Image/JACC.jpg" alt="JACC cover Image" width="600"/>
+<img src="Readme_Image/JACC.jpg" alt="JACC cover Image" width="600"/>
 
 **Key Benefits in the clinical practice**:
 - Efficiency: Reducing the time needed for manual annotations.
@@ -102,7 +102,7 @@ For examples, `inference_Doppler_image.py` process one Dicom images, but `infere
 
 using `get_systole_diastole` funstion in utils.py, you can estimate max diameter timeframe and minimun diameter timeframe
 
-<img src="https://github.com/echonet/measurements/blob/main/Measurement/Readme_Image/Overall.png" alt="Sample Echo Frame" width="600"/>
+<img src="Readme_Image/Overall.png" alt="Sample Echo Frame" width="600"/>
 
 
 ## Gradio Demo Sample
@@ -113,7 +113,7 @@ See, gradio.py (sample for TRVMAX)
 Demo videos that illustrate how the model works in real-world applications. At this time, demo App are not publicly released because the Dicom data typically contains personal information and Gradio does not fully comply with HIPAA (Health Insurance Portability and Accountability Act) standards. 
 To protect patient privacy and sensitive information, we have decided not to make the demo videos publicly available. Herein, we used **de-identified Dicom files** for this demo.
 
-![Representative Videos for 2D Auto-Annotated Echocardiography](videos/Gradio_demo_TRVMAX.gif)
+![Representative Videos for 2D Auto-Annotated Echocardiography](data/videos/Gradio_demo_TRVMAX.gif)
 
 
 ## Citation
