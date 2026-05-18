@@ -8,9 +8,8 @@ wandb
 *.sh
 *.dcm
 *.ipynb
-# *.png
+*.png
 *.jpg
-*.pt
 *.pyc
 SAMPLE_AVI
 SAMPLE_DICOM
