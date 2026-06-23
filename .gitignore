@@ -23,6 +23,7 @@ ipython_config.py
 
 .gradio
 view_classifier_public/
+Segmentation/data/output
 
 # Specific files for this project
 utils_end_to_end_public.py
