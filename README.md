@@ -3,6 +3,6 @@
 This repository contains two projects:
 
 - [Measurement](Measurement/README.md)
-- Segmentation (TBD)
+- [Segmentation](Segmentation/README.md)
 
 For details on each project, please refer to the README in the respective directory.
