@@ -6,6 +6,8 @@ wandb
 *.avi
 *.mp4
 *.sh
+*.pt
+*.ckpt
 *.dcm
 *.ipynb
 *.png
