@@ -82,7 +82,7 @@ Note: we use Python 3.9 or 3.10 for training/inference.
 pip install -r requirements.txt
 ```
 
-Model weights are available on the **[Releases page](../../releases)** (see the right side of this repository page). Download the weights and place them under `weights/` following the directory structure shown above.
+Model weights are available on **[Google Drive](https://drive.google.com/drive/folders/11PIRSD1YFh_9SVwoicGygwacqDFW20R7?usp=sharing)**. Download the weights and place them under `weights/` following the directory structure shown above.
 
 **3. Run inference**:  
 - **3-1. Area Segmentation** (LA_AREA, RA_AREA)
